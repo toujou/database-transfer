@@ -2,10 +2,8 @@
 
 declare(strict_types=1);
 
-
 namespace Toujou\DatabaseTransfer\Command;
 
-use Doctrine\DBAL\DriverManager;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -22,7 +20,10 @@ use TYPO3\CMS\Core\Core\Bootstrap;
 )]
 class ExportCommand extends Command
 {
-    public function __construct(private SelectionFactory $selectionFactory, private Exporter $exporter) {
+    public function __construct(
+        private SelectionFactory $selectionFactory,
+        private Exporter $exporter
+    ) {
         parent::__construct();
     }
 
@@ -98,7 +99,7 @@ class ExportCommand extends Command
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = [
             'url' => $input->getArgument('dsn'),
             'driver' => '',
-            'wrapperClass' => \Toujou\DatabaseTransfer\Database\FastImportConnection::class
+            'wrapperClass' => \Toujou\DatabaseTransfer\Database\FastImportConnection::class,
         ];
 
         $this->exporter->export($selection, $connectionName);

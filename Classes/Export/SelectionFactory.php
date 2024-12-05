@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 namespace Toujou\DatabaseTransfer\Export;
 
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
@@ -14,8 +13,10 @@ class SelectionFactory
 
     public const DEPTH_MAX = 100;
 
-    public function __construct(private readonly SiteFinder $siteFinder, private readonly PageRepository $pageRepository)
-    {
+    public function __construct(
+        private readonly SiteFinder $siteFinder,
+        private readonly PageRepository $pageRepository
+    ) {
     }
 
     public function buildFromCommandOptions(array $options): Selection
@@ -39,8 +40,8 @@ class SelectionFactory
 
         foreach ($pid as $pageId) {
             [$pageId, $depth] = explode(':', $pageId) + [null, self::DEPTH_MAX];
-            $pageId = (int)$pageId;
-            $depth = (int)$depth;
+            $pageId = (int) $pageId;
+            $depth = (int) $depth;
             if (0 === $pageId || $this->pageRepository->getPage_noCheck($pageId)) {
                 $rootPageIds[] = [$pageId, $depth];
             }
@@ -54,6 +55,7 @@ class SelectionFactory
                 $this->pageRepository->getDescendantPageIdsRecursive($pageId, $depth, 0, [], true)
             );
         }
+
         return \array_unique($pageIds);
     }
 
@@ -63,13 +65,12 @@ class SelectionFactory
             unset($includedTables[\array_search(self::TABLES_ALL, $includedTables, true)]);
             $includedTables = \array_merge(\array_filter(
                 \array_keys($GLOBALS['TCA']),
-                fn(string $tableName) =>
-                \in_array($GLOBALS['TCA'][$tableName]['ctrl']['rootLevel'] ?? 0, [0, -1]) || $includeRootLevel
+                fn (string $tableName) => \in_array($GLOBALS['TCA'][$tableName]['ctrl']['rootLevel'] ?? 0, [0, -1]) || $includeRootLevel
             ), $includedTables);
         } else {
-            $includedTables = \array_filter($includedTables, fn(string $tableName) => \array_key_exists($tableName, $GLOBALS['TCA']));
+            $includedTables = \array_filter($includedTables, fn (string $tableName) => \array_key_exists($tableName, $GLOBALS['TCA']));
         }
 
-        return \array_filter($includedTables, fn($tableName) => !\in_array($tableName, $excludeTables, true));
+        return \array_filter($includedTables, fn ($tableName) => !\in_array($tableName, $excludeTables, true));
     }
 }

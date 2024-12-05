@@ -13,12 +13,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Toujou\\Importer\\": "Classes/"
+            "Toujou\\DatabaseTransfer\\": "Classes/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Toujou\\Importer\\Tests\\": "Tests"
+            "Toujou\\DatabaseTransfer\\Tests\\": "Tests"
         }
     },
     "config": {

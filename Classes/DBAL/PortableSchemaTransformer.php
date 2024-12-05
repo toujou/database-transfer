@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 namespace Toujou\DatabaseTransfer\DBAL;
 
 use Doctrine\DBAL\Platforms\AbstractPlatform;
@@ -13,7 +12,6 @@ use Doctrine\DBAL\Schema\Table;
 
 class PortableSchemaTransformer
 {
-
     /**
      * Helper function to build a table object that has the _quoted attribute set so that the SchemaManager
      * will use quoted identifiers when creating the final SQL statements. This is needed as Doctrine doesn't
@@ -24,10 +22,10 @@ class PortableSchemaTransformer
     {
         return new $tableSchema(
             $databasePlatform->quoteIdentifier($tableSchema->getName()),
-            \array_map(fn(Column $column) => self::buildQuotedColumn($column->setPlatformOptions([]), $databasePlatform), $tableSchema->getColumns()),
-            \array_map(fn(Index $index) => self::buildQuotedIndex($index, $databasePlatform), $tableSchema->getIndexes()),
+            \array_map(fn (Column $column) => self::buildQuotedColumn($column->setPlatformOptions([]), $databasePlatform), $tableSchema->getColumns()),
+            \array_map(fn (Index $index) => self::buildQuotedIndex($index, $databasePlatform), $tableSchema->getIndexes()),
             [], // unique constraints are already part of indexes
-            \array_map(fn(ForeignKeyConstraint $foreignKeyConstraint) => self::buildQuotedForeignKey($foreignKeyConstraint, $databasePlatform), $tableSchema->getForeignKeys()),
+            \array_map(fn (ForeignKeyConstraint $foreignKeyConstraint) => self::buildQuotedForeignKey($foreignKeyConstraint, $databasePlatform), $tableSchema->getForeignKeys()),
             // no table options here for portability
         );
     }

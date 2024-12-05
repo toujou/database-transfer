@@ -6,14 +6,12 @@ namespace Toujou\DatabaseTransfer\Export;
 
 final class Selection
 {
-
     public function __construct(
         private readonly array $selectedPageIds = [],
         private readonly array $selectedTables = [],
         private readonly array $relatedTables = [],
         private readonly array $staticTables = []
-    )
-    {
+    ) {
     }
 
     public function getSelectedPageIds(): array
@@ -35,5 +33,4 @@ final class Selection
     {
         return $this->staticTables;
     }
-
 }
