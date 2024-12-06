@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Export;
 
 use Doctrine\DBAL\Schema\Column;
+use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\UniqueConstraint;
 use Doctrine\DBAL\Types\IntegerType;
@@ -84,8 +85,8 @@ class ExportIndexFactory
                 new Column('recuid', new IntegerType()),
                 new Column('type', new StringType()),
             ],
-            [],
-            [new UniqueConstraint('tablename_recuid', ['tablename', 'recuid'])],
+            [new Index('idx_tablename_recuid', ['tablename', 'recuid'])],
+            [new UniqueConstraint('uc_tablename_recuid', ['tablename', 'recuid'])],
             []
         );
         $schemaManager = $connection->createSchemaManager();

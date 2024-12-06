@@ -6,11 +6,14 @@ namespace Toujou\DatabaseTransfer\Export;
 
 use Doctrine\DBAL\Schema\AbstractSchemaManager;
 use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 
 class ExportIndex
 {
     private AbstractSchemaManager $schemaManager;
+
+    private array $lostRelationsQueryCache = [];
 
     public function __construct(
         private readonly Connection $connection,
@@ -133,6 +136,77 @@ class ExportIndex
 
     public function getLostRelationsForRecord(string $tableName, int $uid): \Generator
     {
+        if (isset($this->lostRelationsQueryCache[$tableName])) {
+            $execQuery = $this->lostRelationsQueryCache[$tableName];
+        } else {
+            $queries = [$this->buildForwardPointingLostRelationsQuery($tableName)];
+
+            $hasForeignFieldConstraints = count($this->foreignFields[$tableName] ?? []) > 0;
+            if ($hasForeignFieldConstraints) {
+                $queries[] = $this->buildBackwardsPointingLostRelationsQuery($tableName);
+            }
+
+            $sql = \implode(' UNION ', \array_map(fn (QueryBuilder $query) => $query->getSQL(), $queries));
+            $preparedQuery = $this->connection->prepare($sql);
+
+            $execQuery = $this->lostRelationsQueryCache[$tableName] = function (string $tableName, int $uid) use ($preparedQuery, $hasForeignFieldConstraints) {
+                $preparedQuery->bindValue(1, $tableName);
+                $preparedQuery->bindValue(2, $uid, \PDO::PARAM_INT);
+                if ($hasForeignFieldConstraints) {
+                    $preparedQuery->bindValue(3, $tableName);
+                    $preparedQuery->bindValue(4, $uid, \PDO::PARAM_INT);
+                }
+
+                return $preparedQuery->executeQuery();
+            };
+        }
+
+        $result = $execQuery($tableName, $uid);
+        yield from $result->iterateAssociative();
+        $result->free();
+    }
+
+    public function __destruct()
+    {
+        $schemaManager = $this->connection->createSchemaManager();
+
+        try {
+            $schemaManager->dropTable($this->exportIndexTableName);
+        } catch (\Exception $th) {
+        }
+    }
+
+    private function buildForwardPointingLostRelationsQuery(string $tableName): \TYPO3\CMS\Core\Database\Query\QueryBuilder
+    {
+        $query = $this->connection->createQueryBuilder();
+        $expr = $query->expr();
+
+        $query->select('ri.*')->from('sys_refindex', 'ri');
+
+        $query->leftJoin(
+            'ri',
+            $this->exportIndexTableName,
+            'exr',
+            (string) $expr->and(
+                $expr->eq('ri.ref_table', 'exr.tablename'),
+                $expr->eq('ri.ref_uid', 'exr.recuid')
+            )
+        );
+
+        $query->where($expr->and(
+            $expr->neq('ri.ref_table', $query->quote('_STRING')),
+            $expr->and(
+                $expr->eq('ri.tablename', '?'),
+                $expr->eq('ri.recuid', '?'),
+                $expr->isNull('exr.recuid')
+            )
+        ));
+
+        return $query;
+    }
+
+    private function buildBackwardsPointingLostRelationsQuery(string $tableName): \TYPO3\CMS\Core\Database\Query\QueryBuilder
+    {
         $query = $this->connection->createQueryBuilder();
         $expr = $query->expr();
 
@@ -156,45 +230,17 @@ class ExportIndex
                 $expr->eq('ri.recuid', 'exl.recuid')
             )
         );
-        $query->leftJoin(
-            'ri',
-            $this->exportIndexTableName,
-            'exr',
-            (string) $expr->and(
-                $expr->eq('ri.ref_table', 'exr.tablename'),
-                $expr->eq('ri.ref_uid', 'exr.recuid')
-            )
-        );
+
         $query->where($expr->and(
             $expr->neq('ri.ref_table', $query->quote('_STRING')),
-            $expr->or(
-                // forward pointing relations
-                $expr->and(
-                    $expr->eq('ri.tablename', $query->quote($tableName)),
-                    $expr->eq('ri.recuid', $query->quote($uid)),
-                    $expr->isNull('exr.recuid')
-                ),
-                // backwards pointing relations (like foreign_field)
-                count($foreignFieldsConstraints) > 0 ? $expr->and(
-                    $expr->or(...$foreignFieldsConstraints),
-                    $expr->eq('ri.ref_table', $query->quote($tableName)),
-                    $expr->eq('ri.ref_uid', $query->quote($uid)),
-                    $expr->isNull('exl.recuid')
-                ) : null
+            $expr->and(
+                $expr->or(...$foreignFieldsConstraints),
+                $expr->eq('ri.ref_table', '?'),
+                $expr->eq('ri.ref_uid', '?'),
+                $expr->isNull('exl.recuid')
             )
         ));
-        $result = $query->executeQuery();
-        yield from $result->iterateAssociative();
-        $result->free();
-    }
 
-    public function __destruct()
-    {
-        $schemaManager = $this->connection->createSchemaManager();
-
-        try {
-            $schemaManager->dropTable($this->exportIndexTableName);
-        } catch (\Exception $th) {
-        }
+        return $query;
     }
 }
