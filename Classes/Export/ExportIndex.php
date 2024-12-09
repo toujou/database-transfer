@@ -114,9 +114,15 @@ class ExportIndex
         $query
             ->selectLiteral($query->quote('sys_refindex') . ' AS _tablename')
             ->addSelect('ri.*')
-            ->from('sys_refindex', 'ri')
-            ->join('ri', $this->exportIndexTableName, 'exl', 'exl.tablename = ri.tablename AND exl.recuid = ri.recuid')
-            ->join('ri', $this->exportIndexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.recuid = ri.ref_uid');
+            ->from('sys_refindex', 'ri');
+
+        $query->join('ri', $this->exportIndexTableName, 'exl', 'exl.tablename = ri.tablename AND exl.recuid = ri.recuid');
+        $query->leftJoin('ri', $this->exportIndexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.recuid = ri.ref_uid');
+
+        $query->where($expr->or(
+            $expr->eq('ri.ref_table', $query->quote('_STRING')),
+            $expr->isNotNull('exr.recuid'),
+        ));
 
         $result = $query->executeQuery();
         yield from $result->iterateAssociative();

@@ -221,17 +221,34 @@ class RelationHandler
         if (empty($matchedElements) || (string) $value === (string) $parsedValue || !str_contains($parsedValue, '{softref:')) {
             return $value;
         }
+
+        // This is ugly and complicated. As there is no way to stringify the found softreferences back to their original string,
+        // we need to split the parsed values by the softreference tokens and then split the original value by text around the tokens.
+        // Only this way we can build a list of the softreference tokens with its original string.
+        $splitParsedValue = \preg_split('/({softref:[a-z0-9]+})/', $parsedValue, -1, \PREG_SPLIT_DELIM_CAPTURE);
+        $unparsedValue = $value;
+        $softrefValues = [];
+        foreach ($splitParsedValue as $index => $split) {
+            if (!($index % 2)) {
+                $start = \strpos($unparsedValue, $split);
+                if ($start > 0) {
+                    $softrefValues[$splitParsedValue[$index - 1]] = \substr($unparsedValue, 0, $start);
+                }
+                $unparsedValue = \substr($unparsedValue, $start + \strlen($split));
+            }
+        }
+
+        // As the reference index stores the key of the softreference parser and the id, we need to map this to the
+        // softreference tokenId.
         foreach ($relations as $relation) {
-            if (!isset($matchedElements[$relation['softref_key']][$relation['softref_id']]['subst']['tokenValue'])) {
+            if (!isset($matchedElements[$relation['softref_key']][$relation['softref_id']]['subst']['tokenID'])) {
                 continue;
             }
-            $matchedElements[$relation['softref_key']][$relation['softref_id']]['subst']['tokenValue'] = '';
+            $tokenId = $matchedElements[$relation['softref_key']][$relation['softref_id']]['subst']['tokenID'];
+            $softrefValues['{softref:' . $tokenId . '}'] = '';
         }
-        foreach ($matchedElements as $matchedElementsOfKey) {
-            foreach ($matchedElementsOfKey as $matchedElement) {
-                $parsedValue = str_replace('{softref:' . $matchedElement['subst']['tokenID'] . '}', (string) $matchedElement['subst']['tokenValue'], $parsedValue);
-            }
-        }
+
+        $parsedValue = \str_replace(\array_keys($softrefValues), $softrefValues, $parsedValue);
 
         return $parsedValue;
     }

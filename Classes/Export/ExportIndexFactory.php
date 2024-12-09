@@ -162,7 +162,6 @@ class ExportIndexFactory
                 continue;
             }
             $columnConfig = $GLOBALS['TCA'][$mmRelation['tablename']]['columns'][$mmRelation['field']]['config'];
-            // TODO resolve flexpointers here
             $mmQueries = $this->generateMmQueriesForColumn($columnConfig, $mmRelation, $mmQueries);
         }
 
