@@ -48,7 +48,7 @@ class ExportIndexFactory
         );
     }
 
-    private function generateRecordQueriesForSelection(array $tableNames, array $selectedPageIds, array $staticTableNames = []): \Generator
+    private function generateRecordQueriesForSelection(array $tableNames, array $selectedPageIds, array $staticTableNames = [], array $excludedRecords = []): \Generator
     {
         foreach ($tableNames as $tableName) {
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable($tableName);
@@ -65,6 +65,10 @@ class ExportIndexFactory
                     'sys_file_metadata' === $tableName => $expr->in('pid', 0),
                     default => $expr->in('pid', $selectedPageIds)
                 });
+            }
+
+            if (!empty($excludedRecords[$tableName])) {
+                $queryBuilder->andWhere($expr->notIn('uid', $excludedRecords[$tableName]));
             }
 
             if (isset($GLOBALS['TCA'][$tableName]['ctrl']['languageField'])) {
@@ -104,7 +108,12 @@ class ExportIndexFactory
         $depthLimiter = 0;
         do {
             $recordsFound = 0;
-            foreach ($this->generateRecordQueriesForSelection($relatedTables, $selection->getSelectedPageIds(), $selection->getStaticTables()) as $tableName => $query) {
+            foreach ($this->generateRecordQueriesForSelection(
+                $relatedTables,
+                $selection->getSelectedPageIds(),
+                [],
+                $selection->getStaticTables()
+            ) as $tableName => $query) {
                 $expr = $query->expr();
                 $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS recuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
 
@@ -140,7 +149,11 @@ class ExportIndexFactory
 
     private function addDirectlySelectedRecords(Selection $selection, Connection $connection, string $exportIndexTableName): void
     {
-        foreach ($this->generateRecordQueriesForSelection($selection->getSelectedTables(), $selection->getSelectedPageIds()) as $tableName => $query) {
+        foreach ($this->generateRecordQueriesForSelection(
+            $selection->getSelectedTables(),
+            $selection->getSelectedPageIds(), [],
+            $selection->getExcludedRecords()
+        ) as $tableName => $query) {
             $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS recuid', $query->quote('included') . ' AS type');
             $connection->executeStatement(\sprintf('INSERT INTO %s %s', $query->quoteIdentifier($exportIndexTableName), $query->getSQL()));
         }

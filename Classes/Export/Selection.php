@@ -10,7 +10,8 @@ final class Selection
         private readonly array $selectedPageIds = [],
         private readonly array $selectedTables = [],
         private readonly array $relatedTables = [],
-        private readonly array $staticTables = []
+        private readonly array $staticTables = [],
+        private readonly array $excludedRecords = []
     ) {
     }
 
@@ -33,4 +34,10 @@ final class Selection
     {
         return $this->staticTables;
     }
+
+    public function getExcludedRecords(): array
+    {
+        return $this->excludedRecords;
+    }
+
 }
