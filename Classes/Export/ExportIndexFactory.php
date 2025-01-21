@@ -111,8 +111,8 @@ class ExportIndexFactory
             foreach ($this->generateRecordQueriesForSelection(
                 $relatedTables,
                 $selection->getSelectedPageIds(),
-                [],
-                $selection->getStaticTables()
+                $selection->getStaticTables(),
+                $selection->getExcludedRecords()
             ) as $tableName => $query) {
                 $expr = $query->expr();
                 $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS recuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
