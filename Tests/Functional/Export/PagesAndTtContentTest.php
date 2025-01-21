@@ -26,7 +26,6 @@ use TYPO3\CMS\Core\Database\ReferenceIndex;
 
 final class PagesAndTtContentTest extends AbstractExportTestCase
 {
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -51,7 +50,7 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
         $selectionFactory = $this->get(SelectionFactory::class);
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
-        $exporter = $this->get(Exporter::CLASS);
+        $exporter = $this->get(Exporter::class);
         $exporter->export($selection, $exportConnectionName);
 
         $databaseContext = new DatabaseContext(
@@ -65,7 +64,7 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
 
         // tt_content:2 header_link field contains a reference to file:4 which is on the fallback storage and thus not part
         // of the reference index. As header_link is a link field, this reference is NOT cleared during export.
-        $databaseContext->runWithinConnection(function() {
+        $databaseContext->runWithinConnection(function () {
             $this->assertCSVDataSet(__DIR__ . '/../Fixtures/DatabaseExports/pages-and-ttcontent.csv');
         });
     }
@@ -85,7 +84,7 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
         $selectionFactory = $this->get(SelectionFactory::class);
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
-        $exporter = $this->get(Exporter::CLASS);
+        $exporter = $this->get(Exporter::class);
         $exporter->export($selection, $exportConnectionName);
 
         $databaseContext = new DatabaseContext(
@@ -99,7 +98,7 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
         );
         // tt_content:2 header_link field contains a reference to file:4 which is on the fallback storage and thus not part
         // of the reference index. As header_link is a link field, this reference is NOT cleared during export.
-        $databaseContext->runWithinConnection(function() {
+        $databaseContext->runWithinConnection(function () {
             $this->assertCSVDataSet(__DIR__ . '/../Fixtures/DatabaseExports/pages-and-ttcontent-complex.csv');
         });
     }

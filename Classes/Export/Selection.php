@@ -39,5 +39,4 @@ final class Selection
     {
         return $this->excludedRecords;
     }
-
 }

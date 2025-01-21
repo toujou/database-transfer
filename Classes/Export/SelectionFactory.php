@@ -40,7 +40,7 @@ class SelectionFactory
         }
 
         foreach ($pid as $pageId) {
-            [$pageId, $depth] = explode(':', (string)$pageId) + [null, self::DEPTH_MAX];
+            [$pageId, $depth] = explode(':', (string) $pageId) + [null, self::DEPTH_MAX];
             $pageId = (int) $pageId;
             $depth = (int) $depth;
             if (0 === $pageId || (!in_array($pageId, $excludedPageIds) && $this->pageRepository->getPage_noCheck($pageId))) {
@@ -79,12 +79,13 @@ class SelectionFactory
     {
         $parsedExcludedRecords = [];
         foreach ($excludedRecords as $excludedRecord) {
-            [$tableName, $uid] = explode(':', (string)$excludedRecord) + [null, 0];
+            [$tableName, $uid] = explode(':', (string) $excludedRecord) + [null, 0];
             $uid = (int) $uid;
             if (\array_key_exists($tableName, $GLOBALS['TCA'])) {
                 $parsedExcludedRecords[$tableName][$uid] = $uid;
             }
         }
+
         return $parsedExcludedRecords;
     }
 }

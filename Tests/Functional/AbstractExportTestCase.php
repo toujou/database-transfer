@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 namespace Toujou\DatabaseTransfer\Tests\Functional;
 
 use Toujou\DatabaseTransfer\Database\FastImportConnection;
@@ -10,7 +9,6 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 abstract class AbstractExportTestCase extends FunctionalTestCase
 {
-
     protected array $testExtensionsToLoad = [
         'typo3conf/ext/toujou_database_transfer',
     ];
@@ -28,6 +26,7 @@ abstract class AbstractExportTestCase extends FunctionalTestCase
             'wrapperClass' => FastImportConnection::class,
         ];
         $this->testFilesToDelete[] = $fileName;
+
         return $exportConnnectionName;
     }
 

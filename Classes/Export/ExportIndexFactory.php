@@ -151,7 +151,8 @@ class ExportIndexFactory
     {
         foreach ($this->generateRecordQueriesForSelection(
             $selection->getSelectedTables(),
-            $selection->getSelectedPageIds(), [],
+            $selection->getSelectedPageIds(),
+            [],
             $selection->getExcludedRecords()
         ) as $tableName => $query) {
             $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS recuid', $query->quote('included') . ' AS type');

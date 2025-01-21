@@ -15,11 +15,11 @@ use TYPO3\CMS\Core\Database\ReferenceIndex;
 class Exporter
 {
     public function __construct(
-        private readonly ConnectionPool     $connectionPool,
+        private readonly ConnectionPool $connectionPool,
         private readonly ExportIndexFactory $exportIndexFactory,
-        private readonly SchemaService      $schemaService,
-        private readonly RelationHandler    $relationHandler,
-        private readonly ReferenceIndex     $referenceIndex
+        private readonly SchemaService $schemaService,
+        private readonly RelationHandler $relationHandler,
+        private readonly ReferenceIndex $referenceIndex
     ) {
     }
 
