@@ -5,7 +5,7 @@ on:
 jobs:
   rebase:
     name: Rebase
-    runs-on: self-hosted
+      # runs-on: self-hosted
     if: >-
       github.event.issue.pull_request != '' &&
       (
