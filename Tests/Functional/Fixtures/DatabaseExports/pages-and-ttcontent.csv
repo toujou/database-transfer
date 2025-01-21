@@ -8,3 +8,11 @@
 ,1,1,"text","Test content",,0,0,0,128,0
 ,2,1,"text","Test content 2","file:4",0,0,0,256,0
 ,3,1,"text","Test content 3",,0,0,0,512,1
+"export_index",,,
+,"tablename","recuid","type"
+,pages,1,included
+,pages,2,included
+,pages,3,included
+,tt_content,1,included
+,tt_content,2,included
+,tt_content,3,included

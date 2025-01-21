@@ -6,3 +6,11 @@
 ,"uid","pid","CType","header","header_link","deleted","t3ver_oid","t3ver_wsid","sorting","hidden"
 ,1,1,"text","Test content",file:2,0,0,0,128,0
 ,3,1,"text","Test content 3",file:3,0,0,0,512,1
+"export_index",,,
+,"tablename","recuid","type"
+,pages,1,included
+,pages,3,included
+,sys_file,2,related
+,sys_file,3,related
+,tt_content,1,included
+,tt_content,3,included

@@ -59,6 +59,7 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
             [
                 'pages',
                 'tt_content',
+                'export_index',
             ]
         );
 
@@ -94,6 +95,7 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
                 'pages',
                 'tt_content',
                 'sys_file',
+                'export_index',
             ]
         );
         // tt_content:2 header_link field contains a reference to file:4 which is on the fallback storage and thus not part
