@@ -42,7 +42,7 @@ class ExportIndex
 
     public function getRecordCount(): int
     {
-        return $this->connection->count('recuid', $this->exportIndexTableName, []);
+        return $this->connection->count('sourceuid', $this->exportIndexTableName, []);
     }
 
     public function getRecords(): \Generator
@@ -57,7 +57,7 @@ class ExportIndex
                     $this->exportIndexTableName,
                     'ex',
                     (string) $expr->and(
-                        $expr->eq('ex.recuid', 'rt.uid'),
+                        $expr->eq('ex.sourceuid', 'rt.uid'),
                         $expr->eq('ex.tablename', $query->quote($recordTableName)),
                         $expr->neq('ex.type', $query->quote('static'))
                     )
@@ -79,13 +79,13 @@ class ExportIndex
                 'mm',
                 $this->exportIndexTableName,
                 'exl',
-                (string) $expr->eq('exl.recuid', 'mm.uid_local')
+                (string) $expr->eq('exl.sourceuid', 'mm.uid_local')
             );
             $query->join(
                 'mm',
                 $this->exportIndexTableName,
                 'exr',
-                (string) $expr->eq('exr.recuid', 'mm.uid_foreign')
+                (string) $expr->eq('exr.sourceuid', 'mm.uid_foreign')
             );
 
             $query->where($expr->or(...\array_map(function (array $queryParameters) use ($query, $expr) {
@@ -116,12 +116,12 @@ class ExportIndex
             ->addSelect('ri.*')
             ->from('sys_refindex', 'ri');
 
-        $query->join('ri', $this->exportIndexTableName, 'exl', 'exl.tablename = ri.tablename AND exl.recuid = ri.recuid');
-        $query->leftJoin('ri', $this->exportIndexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.recuid = ri.ref_uid');
+        $query->join('ri', $this->exportIndexTableName, 'exl', 'exl.tablename = ri.tablename AND exl.sourceuid = ri.recuid');
+        $query->leftJoin('ri', $this->exportIndexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.sourceuid = ri.ref_uid');
 
         $query->where($expr->or(
             $expr->eq('ri.ref_table', $query->quote('_STRING')),
-            $expr->isNotNull('exr.recuid'),
+            $expr->isNotNull('exr.sourceuid'),
         ));
 
         $result = $query->executeQuery();
@@ -195,7 +195,7 @@ class ExportIndex
             'exr',
             (string) $expr->and(
                 $expr->eq('ri.ref_table', 'exr.tablename'),
-                $expr->eq('ri.ref_uid', 'exr.recuid')
+                $expr->eq('ri.ref_uid', 'exr.sourceuid')
             )
         );
 
@@ -204,7 +204,7 @@ class ExportIndex
             $expr->and(
                 $expr->eq('ri.tablename', '?'),
                 $expr->eq('ri.recuid', '?'),
-                $expr->isNull('exr.recuid')
+                $expr->isNull('exr.sourceuid')
             )
         ));
 
@@ -233,7 +233,7 @@ class ExportIndex
             'exl',
             (string) $expr->and(
                 $expr->eq('ri.tablename', 'exl.tablename'),
-                $expr->eq('ri.recuid', 'exl.recuid')
+                $expr->eq('ri.recuid', 'exl.sourceuid')
             )
         );
 
@@ -243,7 +243,7 @@ class ExportIndex
                 $expr->or(...$foreignFieldsConstraints),
                 $expr->eq('ri.ref_table', '?'),
                 $expr->eq('ri.ref_uid', '?'),
-                $expr->isNull('exl.recuid')
+                $expr->isNull('exl.sourceuid')
             )
         ));
 

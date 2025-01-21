@@ -86,11 +86,11 @@ class ExportIndexFactory
             $exportIndexTableName,
             [
                 new Column('tablename', new StringType()),
-                new Column('recuid', new IntegerType()),
+                new Column('sourceuid', new IntegerType()),
                 new Column('type', new StringType()),
             ],
-            [new Index('idx_tablename_recuid', ['tablename', 'recuid'])],
-            [new UniqueConstraint('uc_tablename_recuid', ['tablename', 'recuid'])],
+            [new Index('idx_tablename_sourceuid', ['tablename', 'sourceuid'])],
+            [new UniqueConstraint('uc_tablename_sourceuid', ['tablename', 'sourceuid'])],
             []
         );
         $schemaManager = $connection->createSchemaManager();
@@ -115,7 +115,7 @@ class ExportIndexFactory
                 $selection->getExcludedRecords()
             ) as $tableName => $query) {
                 $expr = $query->expr();
-                $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS recuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
+                $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
 
                 $refindexSubquery = $connection->createQueryBuilder();
                 $refindexSubquery->getRestrictions()->removeAll()->add(new DeletedRestriction());
@@ -125,7 +125,7 @@ class ExportIndexFactory
                     $exportIndexTableName,
                     'exi',
                     (string) $expr->and(
-                        $expr->eq('ri.recuid', 'exi.recuid'),
+                        $expr->eq('ri.recuid', 'exi.sourceuid'),
                         $expr->eq('ri.tablename', 'exi.tablename'),
                     )
                 );
@@ -133,7 +133,7 @@ class ExportIndexFactory
 
                 $exportSelectionSubquery = $connection->createQueryBuilder();
                 $exportSelectionSubquery->getRestrictions()->removeAll();
-                $exportSelectionSubquery->select('recuid')->from($exportIndexTableName, 'exe')->where(
+                $exportSelectionSubquery->select('sourceuid')->from($exportIndexTableName, 'exe')->where(
                     $expr->eq('exe.tablename', $query->quote($tableName)),
                 );
 
@@ -155,7 +155,7 @@ class ExportIndexFactory
             [],
             $selection->getExcludedRecords()
         ) as $tableName => $query) {
-            $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS recuid', $query->quote('included') . ' AS type');
+            $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', $query->quote('included') . ' AS type');
             $connection->executeStatement(\sprintf('INSERT INTO %s %s', $query->quoteIdentifier($exportIndexTableName), $query->getSQL()));
         }
     }
@@ -167,8 +167,8 @@ class ExportIndexFactory
         $mmRelationsExpr = $mmRelationsQuery->expr();
         $mmRelationsQuery->getRestrictions()->removeAll();
         $mmRelationsQuery->select('ri.tablename', 'ri.field', 'ri.flexpointer', 'ri.ref_table')->from(self::TABLENAME_REFERENCE_INDEX, 'ri')
-            ->join('ri', $exportIndexTableName, 'exl', 'exl.tablename = ri.tablename AND exl.recuid = ri.recuid')
-            ->join('ri', $exportIndexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.recuid = ri.ref_uid')
+            ->join('ri', $exportIndexTableName, 'exl', 'exl.tablename = ri.tablename AND exl.sourceuid = ri.recuid')
+            ->join('ri', $exportIndexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.sourceuid = ri.ref_uid')
             ->where($mmRelationsExpr->eq('ri.softref_key', $mmRelationsQuery->quote('')))
             ->groupBy('ri.tablename', 'ri.field', 'ri.flexpointer', 'ri.ref_table');
         foreach ($mmRelationsQuery->executeQuery()->iterateAssociative() as $mmRelation) {
@@ -227,7 +227,7 @@ class ExportIndexFactory
         $foreignFieldRelationsExpr = $foreignFieldRelationsQuery->expr();
         $foreignFieldRelationsQuery->getRestrictions()->removeAll();
         $foreignFieldRelationsQuery->select('ri.tablename', 'ri.field', 'ri.flexpointer', 'ri.ref_table')->from(self::TABLENAME_REFERENCE_INDEX, 'ri')
-            ->join('ri', $exportIndexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.recuid = ri.ref_uid')
+            ->join('ri', $exportIndexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.sourceuid = ri.ref_uid')
             ->where($foreignFieldRelationsExpr->and(
                 $foreignFieldRelationsExpr->eq('ri.softref_key', $foreignFieldRelationsQuery->quote(''))
             ))
