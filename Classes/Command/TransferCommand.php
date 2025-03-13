@@ -11,18 +11,18 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
-use Toujou\DatabaseTransfer\Service\Exporter;
+use Toujou\DatabaseTransfer\Service\TransferService;
 use TYPO3\CMS\Core\Core\Bootstrap;
 
 #[AsCommand(
-    name: 'exporter:export',
-    description: 'Exports from one database to another',
+    name: 'database:transfer',
+    description: 'Transfers data from one database to another',
 )]
-class ExportCommand extends Command
+class TransferCommand extends Command
 {
     public function __construct(
         private SelectionFactory $selectionFactory,
-        private Exporter $exporter
+        private TransferService $transferService
     ) {
         parent::__construct();
     }
@@ -95,14 +95,14 @@ class ExportCommand extends Command
         $options = $input->getOptions();
         $selection = $this->selectionFactory->buildFromCommandOptions($options);
 
-        $connectionName = uniqid('export_', false);
+        $connectionName = uniqid('', false);
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = [
             'url' => $input->getArgument('dsn'),
             'driver' => '',
             'wrapperClass' => \Toujou\DatabaseTransfer\Database\FastImportConnection::class,
         ];
 
-        $this->exporter->export($selection, $connectionName);
+        $this->transferService->transfer($selection, $connectionName);
 
         return Command::SUCCESS;
     }

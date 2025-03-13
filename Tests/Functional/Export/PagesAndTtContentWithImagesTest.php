@@ -7,11 +7,11 @@ namespace Toujou\DatabaseTransfer\Tests\Functional\Export;
 use PHPUnit\Framework\Attributes\Test;
 use Toujou\DatabaseTransfer\Database\DatabaseContext;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
-use Toujou\DatabaseTransfer\Service\Exporter;
-use Toujou\DatabaseTransfer\Tests\Functional\AbstractExportTestCase;
+use Toujou\DatabaseTransfer\Service\TransferService;
+use Toujou\DatabaseTransfer\Tests\Functional\AbstractTransferTestCase;
 use TYPO3\CMS\Core\Database\ReferenceIndex;
 
-class PagesAndTtContentWithImagesTest extends AbstractExportTestCase
+class PagesAndTtContentWithImagesTest extends AbstractTransferTestCase
 {
     protected function setUp(): void
     {
@@ -84,8 +84,8 @@ class PagesAndTtContentWithImagesTest extends AbstractExportTestCase
         $selectionFactory = $this->get(SelectionFactory::class);
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
-        $exporter = $this->get(Exporter::class);
-        $exporter->export($selection, $exportConnectionName);
+        $transferService = $this->get(TransferService::class);
+        $transferService->transfer($selection, $exportConnectionName);
 
         $databaseContext = new DatabaseContext(
             $this->getConnectionPool()->getConnectionByName($exportConnectionName),

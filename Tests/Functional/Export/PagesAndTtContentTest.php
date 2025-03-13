@@ -20,11 +20,12 @@ namespace Toujou\DatabaseTransfer\Tests\Functional\Export;
 use PHPUnit\Framework\Attributes\Test;
 use Toujou\DatabaseTransfer\Database\DatabaseContext;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
-use Toujou\DatabaseTransfer\Service\Exporter;
-use Toujou\DatabaseTransfer\Tests\Functional\AbstractExportTestCase;
+use Toujou\DatabaseTransfer\Service\TransferService;
+use Toujou\DatabaseTransfer\Tests\Functional\AbstractTransferTestCase;
 use TYPO3\CMS\Core\Database\ReferenceIndex;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-final class PagesAndTtContentTest extends AbstractExportTestCase
+final class PagesAndTtContentTest extends AbstractTransferTestCase
 {
     protected function setUp(): void
     {
@@ -35,7 +36,7 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file-export-pages-and-tt-content.csv');
 
-        $this->get(ReferenceIndex::class)->updateIndex(false);
+        GeneralUtility::makeInstance(ReferenceIndex::class)->updateIndex(false);
     }
 
     #[Test]
@@ -50,8 +51,8 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
         $selectionFactory = $this->get(SelectionFactory::class);
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
-        $exporter = $this->get(Exporter::class);
-        $exporter->export($selection, $exportConnectionName);
+        $transferService = $this->get(TransferService::class);
+        $transferService->transfer($selection, $exportConnectionName);
 
         $databaseContext = new DatabaseContext(
             $this->getConnectionPool()->getConnectionByName($exportConnectionName),
@@ -59,7 +60,6 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
             [
                 'pages',
                 'tt_content',
-                'export_index',
             ]
         );
 
@@ -85,8 +85,8 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
         $selectionFactory = $this->get(SelectionFactory::class);
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
-        $exporter = $this->get(Exporter::class);
-        $exporter->export($selection, $exportConnectionName);
+        $transferService = $this->get(TransferService::class);
+        $transferService->transfer($selection, $exportConnectionName);
 
         $databaseContext = new DatabaseContext(
             $this->getConnectionPool()->getConnectionByName($exportConnectionName),
@@ -95,7 +95,6 @@ final class PagesAndTtContentTest extends AbstractExportTestCase
                 'pages',
                 'tt_content',
                 'sys_file',
-                'export_index',
             ]
         );
         // tt_content:2 header_link field contains a reference to file:4 which is on the fallback storage and thus not part

@@ -1,16 +1,8 @@
 "pages",,,,,,,
 ,"uid","pid","title","doktype","deleted","perms_everybody","hidden"
 ,1,0,"Root",1,0,15,0
-,3,1,"Dummy 1-3",1,0,15,1
+,2,1,"Dummy 1-3",1,0,15,1
 "tt_content",,,,,,,,,,
 ,"uid","pid","CType","header","header_link","deleted","t3ver_oid","t3ver_wsid","sorting","hidden"
-,1,1,"text","Test content",file:2,0,0,0,128,0
-,3,1,"text","Test content 3",file:3,0,0,0,512,1
-"export_index",,,
-,"tablename","sourceuid","type"
-,pages,1,included
-,pages,3,included
-,sys_file,2,related
-,sys_file,3,related
-,tt_content,1,included
-,tt_content,3,included
+,1,1,"text","Test content",file:1,0,0,0,128,0
+,2,1,"text","Test content 3",file:2,0,0,0,512,1
