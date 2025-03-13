@@ -69,12 +69,18 @@ class RelationEditor
         foreach ($backwardsPointingRelations as $relationTableName => $relationTableColumns) {
             foreach ($relationTableColumns as $column) {
                 $foreignFieldColumnName = $column['config']['foreign_field'];
+                if (isset($forwardPointingRelations[$foreignFieldColumnName])) {
+                    // Skip backwards pointing relation when there is already a forward pointing relation.
+                    continue;
+                }
                 $matchFields = $column['config']['foreign_match_fields'] ?? [];
                 if (isset($column['config']['foreign_table_field'])) {
                     $matchFields[$column['config']['foreign_table_field']] = $relationTableName;
                 }
-                foreach ($relationMap as $relation) {
-                    if ($tableName !== $relation['ref_table'] &&
+                foreach ($relationMap as $relationTranslation) {
+                    $relation = $relationTranslation['translated'];
+                    if (null !== $relation &&
+                        $tableName !== $relation['ref_table'] &&
                         $uid !== ((int) $relation['ref_uid']) &&
                         ((int) $record[$foreignFieldColumnName]) !== ((int) $relation['recuid']) &&
                         count(\array_diff_assoc($matchFields, $record)) > 0

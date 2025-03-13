@@ -19,10 +19,15 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 class SchemaService
 {
 
+    public function getIndexTableName(string $type, string $transferName)
+    {
+        return "sys_databasetransfer_{$type}_{$transferName}";
+    }
+
     public function establishIndexTable(Connection $targetDatabase, string $type, string $transferName): string
     {
         $schemaManager = $targetDatabase->createSchemaManager();
-        $transferIndexTableName = "sys_databasetransfer_{$type}_{$transferName}";
+        $transferIndexTableName = $this->getIndexTableName($type, $transferName);
         if ($schemaManager->tablesExist($transferIndexTableName)) {
             return $transferIndexTableName;
         }
@@ -55,6 +60,12 @@ class SchemaService
     {
         $schemaManager = $targetDatabase->createSchemaManager();
         $schemaManager->dropTable($tableName);
+    }
+
+    public function renameTable(Connection $targetDatabase, string $tableName, string $oldTableName): void
+    {
+        $schemaManager = $targetDatabase->createSchemaManager();
+        $schemaManager->renameTable($oldTableName, $tableName);
     }
 
     public function establishSchemaOfTables(Connection $targetDatabase, array $tableNames): void

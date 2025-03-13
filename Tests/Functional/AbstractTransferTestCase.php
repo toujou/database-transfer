@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Tests\Functional;
 
 use Toujou\DatabaseTransfer\Database\FastImportConnection;
+use Toujou\DatabaseTransfer\Service\SchemaService;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
 abstract class AbstractTransferTestCase extends FunctionalTestCase
@@ -33,6 +35,13 @@ abstract class AbstractTransferTestCase extends FunctionalTestCase
 
         return $connectionName;
     }
+
+    protected function renameImportIndexToWellKnownTableName(Connection $targetConnection, string $targetConnectionName): void
+    {
+        $schemaService = $this->get(SchemaService::class);
+        $schemaService->renameTable($targetConnection, 'sys_databasetransfer_import', $schemaService->getIndexTableName('import', $targetConnectionName));
+    }
+
 
     protected function tearDown(): void
     {

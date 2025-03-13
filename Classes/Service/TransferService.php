@@ -73,7 +73,7 @@ class TransferService
                 $relations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int)$record['uid']));
                 $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relations);
                 foreach ($relations as $relation) {
-                    if (null !== $relation['translated']) {
+                    if (null !== $relation['translated'] && $tableName === $relation['translated']['tablename']) {
                         $this->insertRow($targetDatabase, 'sys_refindex', $relation['translated'], $tableColumnNames['sys_refindex']);
                     }
                 }
@@ -90,8 +90,6 @@ class TransferService
         });
 
         return;
-        var_dump(memory_get_peak_usage(true) / 1024 / 1024);
-        die();
     }
 
     private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $types): int

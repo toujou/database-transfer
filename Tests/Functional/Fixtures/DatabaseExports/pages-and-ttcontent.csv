@@ -8,3 +8,11 @@
 ,1,1,"text","Test content",,0,0,0,128,0
 ,2,1,"text","Test content 2","file:4",0,0,0,256,0
 ,3,1,"text","Test content 3",,0,0,0,512,1
+"sys_databasetransfer_import",,,,
+,"tablename","sourceuid","type","targetuid"
+,"pages",1,"included",1
+,"pages",2,"included",2
+,"pages",3,"included",3
+,"tt_content",1,"included",1
+,"tt_content",2,"included",2
+,"tt_content",3,"included",3

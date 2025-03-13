@@ -20,6 +20,7 @@ namespace Toujou\DatabaseTransfer\Tests\Functional\Export;
 use PHPUnit\Framework\Attributes\Test;
 use Toujou\DatabaseTransfer\Database\DatabaseContext;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
+use Toujou\DatabaseTransfer\Service\SchemaService;
 use Toujou\DatabaseTransfer\Service\TransferService;
 use Toujou\DatabaseTransfer\Tests\Functional\AbstractTransferTestCase;
 use TYPO3\CMS\Core\Database\ReferenceIndex;
@@ -42,7 +43,7 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
     #[Test]
     public function exportPagesAndRelatedTtContent(): void
     {
-        $exportConnectionName = $this->createSqliteConnection('export');
+        $targetConnectionName = $this->createSqliteConnection('export');
 
         $options = [
             'pid' => [1],
@@ -52,14 +53,18 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
         $transferService = $this->get(TransferService::class);
-        $transferService->transfer($selection, $exportConnectionName);
+        $transferService->transfer($selection, $targetConnectionName);
+
+        $targetConnection = $this->getConnectionPool()->getConnectionByName($targetConnectionName);
+        $this->renameImportIndexToWellKnownTableName($targetConnection, $targetConnectionName);
 
         $databaseContext = new DatabaseContext(
-            $this->getConnectionPool()->getConnectionByName($exportConnectionName),
-            $exportConnectionName,
+            $targetConnection,
+            $targetConnectionName,
             [
                 'pages',
                 'tt_content',
+                'sys_databasetransfer_import'
             ]
         );
 
@@ -73,7 +78,7 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
     #[Test]
     public function exportPagesAndRelatedTtContentWithComplexConfiguration(): void
     {
-        $exportConnectionName = $this->createSqliteConnection('export');
+        $targetConnectionName = $this->createSqliteConnection('export');
 
         $options = [
             'pid' => [1],
@@ -86,15 +91,19 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
         $transferService = $this->get(TransferService::class);
-        $transferService->transfer($selection, $exportConnectionName);
+        $transferService->transfer($selection, $targetConnectionName);
+
+        $targetConnection = $this->getConnectionPool()->getConnectionByName($targetConnectionName);
+        $this->renameImportIndexToWellKnownTableName($targetConnection, $targetConnectionName);
 
         $databaseContext = new DatabaseContext(
-            $this->getConnectionPool()->getConnectionByName($exportConnectionName),
-            $exportConnectionName,
+            $targetConnection,
+            $targetConnectionName,
             [
                 'pages',
                 'tt_content',
                 'sys_file',
+                'sys_databasetransfer_import'
             ]
         );
         // tt_content:2 header_link field contains a reference to file:4 which is on the fallback storage and thus not part
