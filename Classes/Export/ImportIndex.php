@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 namespace Toujou\DatabaseTransfer\Export;
 
 use Toujou\DatabaseTransfer\Service\SchemaService;
@@ -12,7 +11,6 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 
 class ImportIndex
 {
-
     private array $index = [];
 
     private string $importIndexTableName;
@@ -20,11 +18,10 @@ class ImportIndex
     private ?string $exportIndexTableName = null;
 
     public function __construct(
-        private readonly Connection    $connection,
+        private readonly Connection $connection,
         private readonly SchemaService $schemaService,
-        string        $transferName
-    )
-    {
+        string $transferName
+    ) {
         $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $transferName);
         $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $transferName);
     }
@@ -36,23 +33,22 @@ class ImportIndex
 
     public function compare(ExportIndex $exportIndex): array
     {
-        $this->schemaService->emptyTable($this->connection, $this->exportIndexTableName);;
+        $this->schemaService->emptyTable($this->connection, $this->exportIndexTableName);
         foreach ($exportIndex->getIndex() as $row) {
             $this->connection->insert($this->exportIndexTableName, $row);
         }
 
         $query = $this->connection->createQueryBuilder();
         $query->select(
-                'im.tablename AS im_tablename',
-                'im.sourceuid AS im_sourceuid',
-                'im.type AS im_type',
-                'im.targetuid AS im_targetuid',
-
-                'ex.tablename AS ex_tablename',
-                'ex.sourceuid AS ex_sourceuid',
-                'ex.type AS ex_type',
-                'ex.targetuid AS ex_targetuid',
-            );
+            'im.tablename AS im_tablename',
+            'im.sourceuid AS im_sourceuid',
+            'im.type AS im_type',
+            'im.targetuid AS im_targetuid',
+            'ex.tablename AS ex_tablename',
+            'ex.sourceuid AS ex_sourceuid',
+            'ex.type AS ex_type',
+            'ex.targetuid AS ex_targetuid',
+        );
 
         $queries = [
             (clone $query) // existing
@@ -67,7 +63,7 @@ class ImportIndex
                 ->leftJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.targetuid')
                 ->where('ex.sourceuid IS NULL'),
         ];
-        $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
+        $sql = \implode(' UNION ', \array_map(fn (QueryBuilder $query) => $query->getSQL(), $queries));
         $result = $this->connection->executeQuery($sql);
 
         $unknown = [];
@@ -78,23 +74,23 @@ class ImportIndex
             if (isset($row['im_sourceuid'], $row['ex_sourceuid'])) {
                 $existing[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
                     'tablename' => $row['im_tablename'],
-                    'sourceuid' => (int)$row['im_sourceuid'],
+                    'sourceuid' => (int) $row['im_sourceuid'],
                     'type' => $row['im_type'],
-                    'targetuid' => (int)$row['im_targetuid'],
+                    'targetuid' => (int) $row['im_targetuid'],
                 ];
             } elseif (isset($row['ex_sourceuid'])) {
                 $unknown[$row['ex_tablename'] . '_' . $row['ex_sourceuid']] = [
                     'tablename' => $row['ex_tablename'],
-                    'sourceuid' => (int)$row['ex_sourceuid'],
+                    'sourceuid' => (int) $row['ex_sourceuid'],
                     'type' => $row['ex_type'],
-                    'targetuid' => (int)$row['ex_targetuid'],
+                    'targetuid' => (int) $row['ex_targetuid'],
                 ];
             } elseif (isset($row['im_sourceuid'])) {
                 $unknown[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
                     'tablename' => $row['im_tablename'],
-                    'sourceuid' => (int)$row['im_sourceuid'],
+                    'sourceuid' => (int) $row['im_sourceuid'],
                     'type' => $row['im_type'],
-                    'targetuid' => (int)$row['im_targetuid'],
+                    'targetuid' => (int) $row['im_targetuid'],
                 ];
             } else {
                 throw new \UnexpectedValueException('Export index to import index comparison returned an unexpected row.', 1741349615);
@@ -139,13 +135,13 @@ class ImportIndex
                 'mm',
                 $this->importIndexTableName,
                 'exl',
-                (string)$expr->eq('exl.targetuid', 'mm.uid_local')
+                (string) $expr->eq('exl.targetuid', 'mm.uid_local')
             );
             $query->join(
                 'mm',
                 $this->importIndexTableName,
                 'exr',
-                (string)$expr->eq('exr.targetuid', 'mm.uid_foreign')
+                (string) $expr->eq('exr.targetuid', 'mm.uid_foreign')
             );
 
             $query->where($expr->or(...\array_map(function (array $queryParameters) use ($query, $expr) {
@@ -153,7 +149,7 @@ class ImportIndex
                     $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
                     $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
                     ...\array_map(
-                        fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
+                        fn (string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
                         \array_keys($queryParameters['matchFields']),
                         $queryParameters['matchFields']
                     )
@@ -209,6 +205,7 @@ class ImportIndex
             'targetuid' => $targetUid,
         ];
         $this->connection->insert($this->importIndexTableName, $record);
+
         return $record;
     }
 
@@ -226,7 +223,7 @@ class ImportIndex
                     'rt',
                     $this->importIndexTableName,
                     'ex',
-                    (string)$expr->and(
+                    (string) $expr->and(
                         $expr->eq('ex.targetuid', 'rt.uid'),
                         $expr->eq('ex.tablename', $query->quote($recordTableName)),
                         $expr->neq('ex.type', $query->quote('static'))
@@ -234,7 +231,7 @@ class ImportIndex
                 );
             $result = $query->executeQuery();
             foreach ($result->iterateAssociative() as $row) {
-                $sourceUid = (int)$row['_sourceUid'];
+                $sourceUid = (int) $row['_sourceUid'];
                 unset($row['_sourceUid']);
                 $index = $this->getFromIndex($recordTableName, $sourceUid);
                 if (null === $index) {
@@ -261,7 +258,7 @@ class ImportIndex
             'workspace' => $relation['workspace'] ?? '',
             'ref_table' => $relation['ref_table'] ?? '',
             'ref_uid' => $relation['ref_uid'] ?? '',
-            'ref_string' => $relation['ref_string'] ?? ''
+            'ref_string' => $relation['ref_string'] ?? '',
         ];
         // @see \TYPO3\CMS\Core\Database\ReferenceIndex::updateRefIndexTable:221
         return md5(implode('///', $hashMap) . '///1');

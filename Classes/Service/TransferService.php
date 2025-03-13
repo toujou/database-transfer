@@ -15,11 +15,11 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 class TransferService
 {
     public function __construct(
-        private readonly ConnectionPool     $connectionPool,
+        private readonly ConnectionPool $connectionPool,
         private readonly ExportIndexFactory $exportIndexFactory,
         private readonly ImportIndexFactory $importIndexFactory,
-        private readonly SchemaService      $schemaService,
-        private readonly RelationEditor     $relationEditor
+        private readonly SchemaService $schemaService,
+        private readonly RelationEditor $relationEditor
     ) {
     }
 
@@ -68,9 +68,9 @@ class TransferService
 
             $exportRelationAnalyzer = new RelationAnalyzer($exportIndex);
             foreach ($exportIndex->getRecords() as $tableName => $record) {
-                $uid = $importIndex->translateUid($tableName, (int)$record['uid']);
+                $uid = $importIndex->translateUid($tableName, (int) $record['uid']);
 
-                $relations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int)$record['uid']));
+                $relations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int) $record['uid']));
                 $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relations);
                 foreach ($relations as $relation) {
                     if (null !== $relation['translated'] && $tableName === $relation['translated']['tablename']) {
@@ -96,13 +96,15 @@ class TransferService
     {
         $row = \array_intersect_key($row, $types);
         $targetDatabase->insert($tableName, $row, $types);
-        return (int)$targetDatabase->lastInsertId($tableName);
+
+        return (int) $targetDatabase->lastInsertId($tableName);
     }
 
     private function updateRow(Connection $targetDatabase, string $tableName, array $row, array $identifier, array $types): int
     {
         unset($row['uid']);
         $row = \array_intersect_key($row, $types);
+
         return $targetDatabase->update($tableName, $row, $identifier, $types);
     }
 

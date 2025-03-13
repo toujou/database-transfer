@@ -107,7 +107,7 @@ class RelationEditor
 
             public function __construct(
                 private RelationEditor $relationHandler,
-                array                  $relations
+                array $relations
             ) {
                 foreach ($relations as $relation) {
                     if (empty($relation['flexpointer'])) {
@@ -164,9 +164,10 @@ class RelationEditor
             $prependTableName = $columnConfig['prepend_tname'] ?? count($foreignTables) > 1;
 
             $translationMap = \array_combine(
-                \array_map(fn(array $relation) => ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['original']['ref_uid'] ?? 0), $relations),
-                \array_map(fn(array $relation) => !$relation['translated']['ref_uid'] ? null : ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['translated']['ref_uid']), $relations),
+                \array_map(fn (array $relation) => ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['original']['ref_uid'] ?? 0), $relations),
+                \array_map(fn (array $relation) => !$relation['translated']['ref_uid'] ? null : ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['translated']['ref_uid']), $relations),
             );
+
             return $this->translateList($value, $translationMap);
         }
 
@@ -174,9 +175,10 @@ class RelationEditor
             isset($columnConfig['foreign_table']) &&
             !isset($columnConfig['foreign_field'])) {
             $translationMap = \array_combine(
-                \array_map(fn(array $relation) => $relation['original']['ref_uid'] ?? 0, $relations),
-                \array_map(fn(array $relation) => $relation['translated']['ref_uid'] ?? null, $relations),
+                \array_map(fn (array $relation) => $relation['original']['ref_uid'] ?? 0, $relations),
+                \array_map(fn (array $relation) => $relation['translated']['ref_uid'] ?? null, $relations),
             );
+
             return $this->translateList($value, $translationMap);
         }
 
@@ -194,7 +196,7 @@ class RelationEditor
     private function translateList(mixed $list, array $translationMap): mixed
     {
         $existingElements = GeneralUtility::trimExplode(',', $list, true);
-        $translatedElements = \array_map(fn($source) => $translationMap[$source], $existingElements);
+        $translatedElements = \array_map(fn ($source) => $translationMap[$source], $existingElements);
         $translatedElements = \array_filter($translatedElements);
 
         if ($existingElements !== $translatedElements) {
@@ -256,9 +258,9 @@ class RelationEditor
             $tokenId = $softrefElement['subst']['tokenID'];
             if (null === $relation['translated']) {
                 $softrefValues['{softref:' . $tokenId . '}'] = '';
-            } else if ('db' === $softrefElement['subst']['type']
-                && \str_contains($softrefElement['matchString'], ':')
-                && null !== $relation['translated']['ref_uid']) {
+            } elseif ('db' === $softrefElement['subst']['type'] &&
+                \str_contains($softrefElement['matchString'], ':') &&
+                null !== $relation['translated']['ref_uid']) {
                 [$tokenKey] = explode(':', $softrefElement['matchString']);
                 $softrefValues['{softref:' . $tokenId . '}'] = $tokenKey . ':' . $relation['translated']['ref_uid'];
             } else {

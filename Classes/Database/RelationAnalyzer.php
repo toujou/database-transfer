@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 namespace Toujou\DatabaseTransfer\Database;
 
 use Toujou\DatabaseTransfer\Export\ExportIndex;
@@ -11,13 +10,12 @@ use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 class RelationAnalyzer
 {
     private array $relationsQueryCache = [];
+
     private array $foreignFields = [];
 
-    /**
-     * @param array $lostRelationsQueryCache
-     */
-    public function __construct(private readonly ExportIndex $exportIndex)
-    {
+    public function __construct(
+        private readonly ExportIndex $exportIndex
+    ) {
         $this->foreignFields = $this->buildForeignFields();
     }
 
@@ -77,7 +75,7 @@ class RelationAnalyzer
                 $queries[] = $this->buildBackwardsPointingRelationsQuery($tableName);
             }
 
-            $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
+            $sql = \implode(' UNION ', \array_map(fn (QueryBuilder $query) => $query->getSQL(), $queries));
             $preparedQuery = $this->exportIndex->getConnection()->prepare($sql);
 
             $execQuery = $this->relationsQueryCache[$tableName] = function (string $tableName, int $uid) use ($preparedQuery, $hasForeignFieldConstraints) {
@@ -99,7 +97,6 @@ class RelationAnalyzer
         return $relations;
     }
 
-
     private function buildForwardPointingRelationsQuery(): QueryBuilder
     {
         $query = $this->exportIndex->getConnection()->createQueryBuilder();
@@ -109,14 +106,14 @@ class RelationAnalyzer
             ->select('ri.*')
             ->from('sys_refindex', 'ri')
             ->leftJoin(
-            'ri',
-            $this->exportIndex->getIndexTableName(),
-            'exr',
-            (string)$expr->and(
-                $expr->eq('ri.ref_table', 'exr.tablename'),
-                $expr->eq('ri.ref_uid', 'exr.sourceuid')
-            )
-        );
+                'ri',
+                $this->exportIndex->getIndexTableName(),
+                'exr',
+                (string) $expr->and(
+                    $expr->eq('ri.ref_table', 'exr.tablename'),
+                    $expr->eq('ri.ref_uid', 'exr.sourceuid')
+                )
+            );
 
         $query->where($expr->and(
             $expr->and(
@@ -147,14 +144,14 @@ class RelationAnalyzer
             ->select('ri.*')
             ->from('sys_refindex', 'ri')
             ->leftJoin(
-            'ri',
-            $this->exportIndex->getIndexTableName(),
-            'exl',
-            (string)$expr->and(
-                $expr->eq('ri.tablename', 'exl.tablename'),
-                $expr->eq('ri.recuid', 'exl.sourceuid'),
-            )
-        );
+                'ri',
+                $this->exportIndex->getIndexTableName(),
+                'exl',
+                (string) $expr->and(
+                    $expr->eq('ri.tablename', 'exl.tablename'),
+                    $expr->eq('ri.recuid', 'exl.sourceuid'),
+                )
+            );
 
         $query->where($expr->and(
             $expr->neq('ri.ref_table', $query->quote('_STRING')),
@@ -167,5 +164,4 @@ class RelationAnalyzer
 
         return $query;
     }
-
 }

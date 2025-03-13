@@ -12,7 +12,7 @@ use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 abstract class AbstractTransferTestCase extends FunctionalTestCase
 {
     protected array $coreExtensionsToLoad = [
-        'core'
+        'core',
     ];
 
     protected array $testExtensionsToLoad = [
@@ -23,7 +23,7 @@ abstract class AbstractTransferTestCase extends FunctionalTestCase
 
     protected function createSqliteConnection(string $filePrefix): string
     {
-        $connectionName = uniqid( '', false);
+        $connectionName = uniqid('', false);
         // For yet unknown reason this has to be an absolute path. Probably some working directory issues switching in the test framework.
         $fileName = $this->instancePath . '/typo3temp/var/transient/' . $filePrefix . '_' . $connectionName . '.sqlite';
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = [
@@ -41,7 +41,6 @@ abstract class AbstractTransferTestCase extends FunctionalTestCase
         $schemaService = $this->get(SchemaService::class);
         $schemaService->renameTable($targetConnection, 'sys_databasetransfer_import', $schemaService->getIndexTableName('import', $targetConnectionName));
     }
-
 
     protected function tearDown(): void
     {

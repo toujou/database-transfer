@@ -20,7 +20,6 @@ namespace Toujou\DatabaseTransfer\Tests\Functional\Export;
 use PHPUnit\Framework\Attributes\Test;
 use Toujou\DatabaseTransfer\Database\DatabaseContext;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
-use Toujou\DatabaseTransfer\Service\SchemaService;
 use Toujou\DatabaseTransfer\Service\TransferService;
 use Toujou\DatabaseTransfer\Tests\Functional\AbstractTransferTestCase;
 use TYPO3\CMS\Core\Database\ReferenceIndex;
@@ -64,7 +63,7 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
             [
                 'pages',
                 'tt_content',
-                'sys_databasetransfer_import'
+                'sys_databasetransfer_import',
             ]
         );
 
@@ -103,7 +102,7 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
                 'pages',
                 'tt_content',
                 'sys_file',
-                'sys_databasetransfer_import'
+                'sys_databasetransfer_import',
             ]
         );
         // tt_content:2 header_link field contains a reference to file:4 which is on the fallback storage and thus not part

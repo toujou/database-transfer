@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Service;
 
 use Doctrine\DBAL\Schema\Column;
-use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\Index;
+use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\UniqueConstraint;
 use Doctrine\DBAL\Types\IntegerType;
 use Doctrine\DBAL\Types\StringType;
@@ -18,7 +18,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class SchemaService
 {
-
     public function getIndexTableName(string $type, string $transferName)
     {
         return "sys_databasetransfer_{$type}_{$transferName}";
@@ -43,11 +42,12 @@ class SchemaService
             [
                 new UniqueConstraint('uc_tablename_sourceuid_' . crc32($transferIndexTableName), ['tablename', 'sourceuid']),
                 // This works because targetuid default is null
-                new UniqueConstraint('uc_tablename_targetuid_' . crc32($transferIndexTableName), ['tablename', 'targetuid'])
+                new UniqueConstraint('uc_tablename_targetuid_' . crc32($transferIndexTableName), ['tablename', 'targetuid']),
             ],
             []
         );
         $schemaManager->createTable($exportSelectionTable);
+
         return $transferIndexTableName;
     }
 
