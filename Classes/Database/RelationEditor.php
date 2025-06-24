@@ -110,12 +110,12 @@ class RelationEditor
                 array $relations
             ) {
                 foreach ($relations as $relation) {
-                    if (empty($relation['flexpointer'])) {
+                    if (empty($relation['original']['flexpointer'])) {
                         continue;
                     }
 
                     // ReferenceIndex stores flexpointers in a slightly different format than the one FlexFormTools uses
-                    $flexpointer = 'data/' . trim($relation['flexpointer'], '/');
+                    $flexpointer = 'data/' . trim($relation['original']['flexpointer'], '/');
                     if (!isset($this->relationsByFlexpointer[$flexpointer])) {
                         $this->relationsByFlexpointer[$flexpointer] = [];
                     }
