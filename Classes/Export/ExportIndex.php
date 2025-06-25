@@ -59,7 +59,7 @@ class ExportIndex
         });
     }
 
-    public function addMMRelation(string $mmTableName, string $localTableName, string $foreignTableName, array $mmMatchFields): int
+    public function addMMRelation(string $mmTableName, string $localTableName, string $foreignTableName, array $mmMatchFields): void
     {
         \asort($mmMatchFields); // Normalize
         $mmQuery = [
@@ -144,7 +144,7 @@ class ExportIndex
             );
 
             $queries = \array_map(function (array $queryParameters) use ($query, $expr) {
-                (clone $query)
+                return (clone $query)
                     ->addSelectLiteral(
                         $query->quote($queryParameters['localTable']) . ' AS _localTable',
                         $query->quote($queryParameters['foreignTable']) . ' AS _foreignTable',

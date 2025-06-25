@@ -77,18 +77,25 @@ class SchemaService
         (new TableMigrator($targetDatabase, $tables))->install();
     }
 
-    public function getTableColumnTypes(Connection $connection, array $tableNames)
+    public function getTableColumnMeta(Connection $connection, array $tableNames)
     {
         $schemaManager = $connection->createSchemaManager();
-        $tableColumnTypes = [];
+        $tableColumnMeta = [];
         foreach ($tableNames as $tableName) {
             $columns = $schemaManager->introspectTable($tableName)->getColumns();
-            $tableColumnTypes[$tableName] = \array_combine(
+            $columns = \array_combine(
+                // This remapping is nessary as we get eg CType returned as ctype and simple array operations like key intersection doesn't work anymore.
                 \array_map(fn (Column $column) => $column->getName(), $columns),
-                \array_map(fn (Column $column) => $column->getType(), $columns),
+                \array_map(fn (Column $column) => $column, $columns),
             );
+            $tableColumnMeta[$tableName] = [
+                'defaults' => \array_map(
+                    fn(Column $column) => $column->getName() === 'uid' ? null : ($column->getDefault() ?? ''),
+                    \array_filter($columns, fn(Column $column) => $column->getNotnull())
+                ),
+                'types' => \array_map(fn (Column $column) => $column->getType(), $columns)
+            ];
         }
-
-        return $tableColumnTypes;
+        return $tableColumnMeta;
     }
 }

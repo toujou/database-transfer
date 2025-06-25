@@ -1,0 +1,5 @@
+"sys_category",,,,,,
+,"uid","pid","title","parent","deleted","hidden"
+,10,0,"Root Cat",0,0,0
+,20,0,"Dummy 1-2",10,0,0
+,30,0,"Dummy 1-3",10,0,1

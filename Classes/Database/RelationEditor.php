@@ -79,7 +79,7 @@ class RelationEditor
         return $record;
     }
 
-    private function translateRelationsInFlexColumn(mixed $relations, mixed $tableName, string $columnName, array $record): mixed
+    private function translateRelationsInFlexColumn(array $relations, mixed $tableName, string $columnName, array $record): mixed
     {
         // FlexFormTools->traverseFlexFormXMLData expects a weird callback object, so we're building it on the fly here
         $callBackObj = new class($this, $relations) {
@@ -153,7 +153,7 @@ class RelationEditor
             return $this->translateList($value, $translationMap);
         }
 
-        if (\in_array($columnConfig['type'], ['select', 'inline', 'categories', 'file']) &&
+        if (\in_array($columnConfig['type'], ['select', 'inline', 'categories', 'category', 'file']) &&
             isset($columnConfig['foreign_table']) &&
             !isset($columnConfig['foreign_field'])) {
             $translationMap = \array_combine(
@@ -246,15 +246,13 @@ class RelationEditor
                 [$tokenKey] = explode(':', $softrefElement['matchString']);
                 $softrefValues['{softref:' . $tokenId . '}'] = $tokenKey . ':' . $relation['translated']['ref_uid'];
             } else {
-                $one = 1;
+                // TODO figure out if this condition ever applies
             }
         }
 
         // TODO relation softref_id has to be recalculated as the hash includes the uid of the record
 
-        $parsedValue = \str_replace(\array_keys($softrefValues), $softrefValues, $parsedValue);
-
-        return $parsedValue;
+        return \str_replace(\array_keys($softrefValues), $softrefValues, $parsedValue);
     }
 
     public function translateBackwardsPointingRelationInColumn(array $column, string $relationTableName, mixed $tableName, int $uid, array $record): array

@@ -124,13 +124,13 @@ class ImportIndex
         return ['original' => $original, 'translated' => $translated];
     }
 
-    public function deleteMMRecords(ExportIndex $exportIndex)
+    public function getMMRecords(ExportIndex $exportIndex): \Generator
     {
         foreach ($exportIndex->getMmRelations() as $mmTableName => $mmQueryParameters) {
             $query = $this->connection->createQueryBuilder();
             $expr = $query->expr();
             $query->getRestrictions()->removeAll()->add(new DeletedRestriction());
-            $query->delete('mm')->from($mmTableName, 'mm');
+            $query->select('mm.*')->from($mmTableName, 'mm');
             $query->join(
                 'mm',
                 $this->importIndexTableName,
@@ -156,7 +156,11 @@ class ImportIndex
                 );
             }, $mmQueryParameters)));
 
-            $query->executeQuery();
+            $result = $query->executeQuery();
+            foreach ($result->iterateAssociative() as $row) {
+                yield $mmTableName => $row;
+            }
+            $result->free();
         }
     }
 

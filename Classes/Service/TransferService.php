@@ -34,10 +34,10 @@ class TransferService
 
         $allTableNames = $exportIndex->getAllTableNames();
         $this->schemaService->establishSchemaOfTables($targetDatabase, $allTableNames);
-        $tableColumnNames = $this->schemaService->getTableColumnTypes($targetDatabase, $allTableNames);
+        $tableColumnMetas = $this->schemaService->getTableColumnMeta($targetDatabase, $allTableNames);
 
         // This transaction leads to roughly 100x performance improvement on sqlite
-        $targetDatabase->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnNames) {
+        $targetDatabase->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas) {
             // TODO refactor existing to "updated" by comparing last modified
             // TODO consider a state machine, as the order of actions is very relevant here
 
@@ -45,25 +45,27 @@ class TransferService
             foreach ($unknown as $ident => $row) {
                 // Insert placeholder to get target id
                 // TODO check mysql if this works, as constraints might be unfulfilled. SQlite doesn't care about column constraints
-                $targetUid = $this->insertRow($targetDatabase, $row['tablename'], ['uid' => null], $tableColumnNames[$row['tablename']]);
+                $targetUid = $this->insertRow($targetDatabase, $row['tablename'], [], $tableColumnMetas[$row['tablename']]);
                 $unknown[$ident] = $importIndex->addToIndex($row['tablename'], $row['sourceuid'], $row['type'], $targetUid);
             }
 
             $exportIndex->updateIndex(\array_merge($unknown, $existing));
 
-            $importIndex->deleteMMRecords($exportIndex);
+            foreach ($importIndex->getMMRecords($exportIndex) as $mmTableName => $row) {
+                $this->deleteRow($targetDatabase, $mmTableName, $row);
+            }
             foreach ($exportIndex->getMMRecords() as $mmTableName => $row) {
                 $localTable = $row['_localTable'];
                 $foreignTable = $row['_foreignTable'];
                 unset($row['_localTable'], $row['_foreignTable']);
                 $row['uid_local'] = $importIndex->translateUid($localTable, $row['uid_local']);
                 $row['uid_foreign'] = $importIndex->translateUid($foreignTable, $row['uid_foreign']);
-                $this->insertRow($targetDatabase, $mmTableName, $row, $tableColumnNames[$mmTableName]);
+                $this->insertRow($targetDatabase, $mmTableName, $row, $tableColumnMetas[$mmTableName]);
             }
 
             // TODO replace by $importIndex->deleteRefindex
             foreach ($existing as $row) {
-                $this->deleteRows($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
+                $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
             }
 
             $exportRelationAnalyzer = new RelationAnalyzer($exportIndex);
@@ -81,38 +83,38 @@ class TransferService
                 $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relations);
                 foreach ($relations as $relation) {
                     if (null !== $relation['translated'] && $tableName === $relation['translated']['tablename']) {
-                        $this->insertRow($targetDatabase, 'sys_refindex', $relation['translated'], $tableColumnNames['sys_refindex']);
+                        $this->insertRow($targetDatabase, 'sys_refindex', $relation['translated'], $tableColumnMetas['sys_refindex']);
                     }
                 }
 
-                $this->updateRow($targetDatabase, $tableName, $record, ['uid' => $uid], $tableColumnNames[$tableName]);
+                $this->updateRow($targetDatabase, $tableName, $record, ['uid' => $uid], $tableColumnMetas[$tableName]);
             }
 
             foreach ($missing as $row) {
-                $this->deleteRows($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
-                $this->deleteRows($targetDatabase, $row['tablename'], ['uid' => $row['targetuid']]);
+                $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
+                $this->deleteRow($targetDatabase, $row['tablename'], ['uid' => $row['targetuid']]);
                 $importIndex->removeFromIndex($row['tablename'], $row['targetuid']);
             }
         });
     }
 
-    private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $types): int
+    private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $tableColumnMeta): int
     {
-        $row = \array_intersect_key($row, $types);
-        $targetDatabase->insert($tableName, $row, $types);
+        $row = \array_replace($tableColumnMeta['defaults'], $row);
+        $targetDatabase->insert($tableName, $row, $tableColumnMeta['types']);
 
         return (int) $targetDatabase->lastInsertId($tableName);
     }
 
-    private function updateRow(Connection $targetDatabase, string $tableName, array $row, array $identifier, array $types): int
+    private function updateRow(Connection $targetDatabase, string $tableName, array $row, array $identifier, array $tableColumnMeta): int
     {
         unset($row['uid']);
-        $row = \array_intersect_key($row, $types);
+        $row = \array_intersect_key($row, $tableColumnMeta['types']);
 
-        return $targetDatabase->update($tableName, $row, $identifier, $types);
+        return $targetDatabase->update($tableName, $row, $identifier, $tableColumnMeta['types']);
     }
 
-    private function deleteRows(Connection $targetDatabase, string $tableName, array $identifier): int
+    private function deleteRow(Connection $targetDatabase, string $tableName, array $identifier): int
     {
         return $targetDatabase->delete($tableName, $identifier);
     }
