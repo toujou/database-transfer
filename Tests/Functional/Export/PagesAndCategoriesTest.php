@@ -45,7 +45,7 @@ final class PagesAndCategoriesTest extends AbstractTransferTestCase
 
         $options = [
             'pid' => [10, 0],
-            'include-table' => ['pages','sys_category'],
+            'include-table' => ['pages', 'sys_category'],
             // TODO test sys_category only within include-related
         ];
         $selectionFactory = $this->get(SelectionFactory::class);

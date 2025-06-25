@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-
 namespace Toujou\DatabaseTransfer\Tests\Functional\Export;
 
 use PHPUnit\Framework\Attributes\Test;
@@ -19,11 +18,11 @@ class PagesAndTtContentWithRelationsAndSoftrefsTest extends AbstractTransferTest
     {
         parent::setUp();
 
-        # $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/pages.csv');
-        # $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/tt_content-with-image.csv');
-        # $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file_metadata.csv');
-        # $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file_reference.csv');
-        # $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file_storage.csv');
+        // $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/pages.csv');
+        // $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/tt_content-with-image.csv');
+        // $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file_metadata.csv');
+        // $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file_reference.csv');
+        // $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file_storage.csv');
     }
 
     #[Test]

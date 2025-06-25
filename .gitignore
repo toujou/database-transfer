@@ -1,4 +1,6 @@
 /.idea/
+/.ddev/
+.env
 .DS_Store
 /*.dump
 /*.sql.gz

@@ -90,12 +90,13 @@ class SchemaService
             );
             $tableColumnMeta[$tableName] = [
                 'defaults' => \array_map(
-                    fn(Column $column) => $column->getName() === 'uid' ? null : ($column->getDefault() ?? ''),
-                    \array_filter($columns, fn(Column $column) => $column->getNotnull())
+                    fn (Column $column) => 'uid' === $column->getName() ? null : ($column->getDefault() ?? ''),
+                    \array_filter($columns, fn (Column $column) => $column->getNotnull())
                 ),
-                'types' => \array_map(fn (Column $column) => $column->getType(), $columns)
+                'types' => \array_map(fn (Column $column) => $column->getType(), $columns),
             ];
         }
+
         return $tableColumnMeta;
     }
 }

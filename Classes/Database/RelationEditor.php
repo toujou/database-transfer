@@ -245,9 +245,8 @@ class RelationEditor
                 null !== $relation['translated']['ref_uid']) {
                 [$tokenKey] = explode(':', $softrefElement['matchString']);
                 $softrefValues['{softref:' . $tokenId . '}'] = $tokenKey . ':' . $relation['translated']['ref_uid'];
-            } else {
-                // TODO figure out if this condition ever applies
             }
+            // TODO figure out if its a problem if none of the conditions apply
         }
 
         // TODO relation softref_id has to be recalculated as the hash includes the uid of the record
@@ -266,8 +265,8 @@ class RelationEditor
             $relation = $relationTranslation['translated'];
             if (null !== $relation &&
                 $tableName !== $relation['ref_table'] &&
-                $uid !== ((int)$relation['ref_uid']) &&
-                ((int)$record[$foreignFieldColumnName]) !== ((int)$relation['recuid']) &&
+                $uid !== ((int) $relation['ref_uid']) &&
+                ((int) $record[$foreignFieldColumnName]) !== ((int) $relation['recuid']) &&
                 count(\array_diff_assoc($matchFields, $record)) > 0
             ) {
                 continue;
@@ -281,6 +280,7 @@ class RelationEditor
                 $record = \array_replace($record, \array_fill_keys(\array_keys($matchFields), ''));
             }
         }
+
         return $record;
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Toujou\DatabaseTransfer\Tests\Functional\Export;
 
 use PHPUnit\Framework\Attributes\Test;
@@ -155,7 +157,7 @@ final class StyleguideRecordsTest extends AbstractTransferTestCase
         ];
         // Define HTTPS and server port
         if (isset($requestUrlParts['scheme'])) {
-            if ($requestUrlParts['scheme'] === 'https') {
+            if ('https' === $requestUrlParts['scheme']) {
                 $serverParams['HTTPS'] = 'on';
                 $serverParams['SERVER_PORT'] = '443';
             } else {
@@ -169,7 +171,7 @@ final class StyleguideRecordsTest extends AbstractTransferTestCase
         }
         // set up normalizedParams
         $request = new ServerRequest($url, $method, null, [], $serverParams);
+
         return $request->withAttribute('normalizedParams', NormalizedParams::createFromRequest($request));
     }
-
 }
