@@ -274,11 +274,14 @@ class RelationEditor
             ) {
                 continue;
             }
-            $record[$foreignFieldColumnName] = $relation['recuid'];
-
-            // TODO implement clearing of id when relation is lost
-            // Not sure about unsetting match fields.
-            //$record = \array_replace($record, \array_fill_keys(\array_keys($matchFields), ''));
+            if (null !== $relation) {
+                $record[$foreignFieldColumnName] = $relation['recuid'];
+            } else {
+                // Lost relation
+                $record[$foreignFieldColumnName] = 0;
+                // Not sure about unsetting match fields.
+                $record = \array_replace($record, \array_fill_keys(\array_keys($matchFields), ''));
+            }
         }
         return $record;
     }

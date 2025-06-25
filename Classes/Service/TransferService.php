@@ -71,7 +71,10 @@ class TransferService
                 $uid = $importIndex->translateUid($tableName, (int) $record['uid']);
                 // Pid is a special relation, that is not tracked via refindex
                 if (isset($record['pid']) && $record['pid'] > 0) {
-                    $record['pid'] = $importIndex->translateUid('pages', (int) $record['pid']);
+                    // TODO This needs some thoughts:
+                    // * check whether fallback to 0 is a potential security issue
+                    // * if you only export records without pages, it cannot be translated. Should we use the default target pid?
+                    $record['pid'] = $importIndex->translateUid('pages', (int) $record['pid']) ?? 0;
                 }
 
                 $relations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int) $record['uid']));
