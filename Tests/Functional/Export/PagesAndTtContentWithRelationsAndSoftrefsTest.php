@@ -56,7 +56,7 @@ class PagesAndTtContentWithRelationsAndSoftrefsTest extends AbstractTransferTest
         $targetConnectionName = $this->createSqliteConnection('export');
 
         $options = [
-            'pid' => [1],
+            'pid' => [10],
             'include-table' => ['pages', 'tt_content'],
         ];
         $selectionFactory = $this->get(SelectionFactory::class);

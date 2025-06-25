@@ -26,7 +26,7 @@ class RelationAnalyzer
         $foreignFieldRelationsExpr = $foreignFieldRelationsQuery->expr();
         $foreignFieldRelationsQuery->getRestrictions()->removeAll();
         $foreignFieldRelationsQuery->select('ri.tablename', 'ri.field', 'ri.flexpointer', 'ri.ref_table')->from('sys_refindex', 'ri')
-            ->join('ri', $this->exportIndex->getIndexTableName(), 'exr', 'exr.tablename = ri.ref_table AND exr.targetuid = ri.ref_uid')
+            ->join('ri', $this->exportIndex->getIndexTableName(), 'exr', 'exr.tablename = ri.ref_table AND exr.sourceuid = ri.ref_uid')
             ->where($foreignFieldRelationsExpr->and(
                 $foreignFieldRelationsExpr->eq('ri.softref_key', $foreignFieldRelationsQuery->quote(''))
             ))

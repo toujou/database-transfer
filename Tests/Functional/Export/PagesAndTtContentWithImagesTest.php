@@ -77,7 +77,7 @@ class PagesAndTtContentWithImagesTest extends AbstractTransferTestCase
         $targetConnectionName = $this->createSqliteConnection('export');
 
         $options = [
-            'pid' => [1],
+            'pid' => [10],
             'include-table' => [SelectionFactory::TABLES_ALL],
             'include-related' => ['sys_file', 'sys_file_metadata'],
             'include-static' => ['sys_file_storage'],
@@ -99,6 +99,8 @@ class PagesAndTtContentWithImagesTest extends AbstractTransferTestCase
                 'tt_content',
                 'sys_file',
                 'sys_file_metadata',
+                'sys_file_reference',
+                'sys_file_storage',
                 'sys_databasetransfer_import',
             ]
         );

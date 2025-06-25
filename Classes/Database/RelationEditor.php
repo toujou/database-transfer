@@ -68,29 +68,11 @@ class RelationEditor
 
         foreach ($backwardsPointingRelations as $relationTableName => $relationTableColumns) {
             foreach ($relationTableColumns as $column) {
-                $foreignFieldColumnName = $column['config']['foreign_field'];
-                if (isset($forwardPointingRelations[$foreignFieldColumnName])) {
+                if (isset($forwardPointingRelations[$column['config']['foreign_field']])) {
                     // Skip backwards pointing relation when there is already a forward pointing relation.
                     continue;
                 }
-                $matchFields = $column['config']['foreign_match_fields'] ?? [];
-                if (isset($column['config']['foreign_table_field'])) {
-                    $matchFields[$column['config']['foreign_table_field']] = $relationTableName;
-                }
-                foreach ($relationMap as $relationTranslation) {
-                    $relation = $relationTranslation['translated'];
-                    if (null !== $relation &&
-                        $tableName !== $relation['ref_table'] &&
-                        $uid !== ((int) $relation['ref_uid']) &&
-                        ((int) $record[$foreignFieldColumnName]) !== ((int) $relation['recuid']) &&
-                        count(\array_diff_assoc($matchFields, $record)) > 0
-                    ) {
-                        continue;
-                    }
-                    $record[$foreignFieldColumnName] = 0;
-                    // Not sure about unsetting match fields.
-                    $record = \array_replace($record, \array_fill_keys(\array_keys($matchFields), ''));
-                }
+                $record = $this->translateBackwardsPointingRelationInColumn($column, $relationTableName, $tableName, $uid, $record);
             }
         }
 
@@ -273,5 +255,31 @@ class RelationEditor
         $parsedValue = \str_replace(\array_keys($softrefValues), $softrefValues, $parsedValue);
 
         return $parsedValue;
+    }
+
+    public function translateBackwardsPointingRelationInColumn(array $column, string $relationTableName, mixed $tableName, int $uid, array $record): array
+    {
+        $foreignFieldColumnName = $column['config']['foreign_field'];
+        $matchFields = $column['config']['foreign_match_fields'] ?? [];
+        if (isset($column['config']['foreign_table_field'])) {
+            $matchFields[$column['config']['foreign_table_field']] = $relationTableName;
+        }
+        foreach ($column['relations'] as $relationTranslation) {
+            $relation = $relationTranslation['translated'];
+            if (null !== $relation &&
+                $tableName !== $relation['ref_table'] &&
+                $uid !== ((int)$relation['ref_uid']) &&
+                ((int)$record[$foreignFieldColumnName]) !== ((int)$relation['recuid']) &&
+                count(\array_diff_assoc($matchFields, $record)) > 0
+            ) {
+                continue;
+            }
+            $record[$foreignFieldColumnName] = $relation['recuid'];
+
+            // TODO implement clearing of id when relation is lost
+            // Not sure about unsetting match fields.
+            //$record = \array_replace($record, \array_fill_keys(\array_keys($matchFields), ''));
+        }
+        return $record;
     }
 }

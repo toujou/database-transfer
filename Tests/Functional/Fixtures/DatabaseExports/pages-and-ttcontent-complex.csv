@@ -12,9 +12,9 @@ sys_file,,,,,,,,,,,,,,
 ,2,0,0,2,/user_upload/typo3_image5.jpg,8180e85d25c96697ec9d2004683216831b91ffc1,19669f1e02c2f16705ec7587044c66443be70725,jpg,image/jpeg,typo3_image5.jpg,c3511df85d21bc578faf71c6a19eeb3ff44af370,7425,1393432184,1393432183
 "sys_databasetransfer_import",,,,
 ,"tablename","sourceuid","type","targetuid"
-,"pages",1,"included",1
-,"pages",3,"included",2
-,"tt_content",1,"included",1
-,"tt_content",3,"included",2
-,"sys_file",2,"related",1
-,"sys_file",3,"related",2
+,"pages",10,"included",1
+,"pages",30,"included",2
+,"tt_content",10,"included",1
+,"tt_content",30,"included",2
+,"sys_file",20,"related",1
+,"sys_file",30,"related",2

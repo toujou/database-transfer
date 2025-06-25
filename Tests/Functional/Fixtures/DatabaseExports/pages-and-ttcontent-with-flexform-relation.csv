@@ -8,7 +8,7 @@
 ,1,1,0,0,0,text,Test content,"","<?xml version=""1.0"" encoding=""utf-8"" standalone=""yes"" ?><T3FlexForms><data><sheet index=""sDEF""><language index=""lDEF""><field index=""flexFormRelation""><value index=""vDEF"">1</value></field></language></sheet></data></T3FlexForms>"
 "sys_databasetransfer_import",,,
 ,"tablename","sourceuid","type","targetuid"
-,pages,1,included,1
-,pages,2,included,2
-,pages,3,included,3
-,tt_content,1,included,1
+,pages,10,included,1
+,pages,20,included,2
+,pages,30,included,3
+,tt_content,10,included,1

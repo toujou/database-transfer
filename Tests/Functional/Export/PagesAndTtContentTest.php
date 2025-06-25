@@ -45,7 +45,7 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
         $targetConnectionName = $this->createSqliteConnection('export');
 
         $options = [
-            'pid' => [1],
+            'pid' => [10],
             'include-table' => ['pages', 'tt_content'],
         ];
         $selectionFactory = $this->get(SelectionFactory::class);
@@ -67,7 +67,7 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
             ]
         );
 
-        // tt_content:2 header_link field contains a reference to file:4 which is on the fallback storage and thus not part
+        // tt_content:2 header_link field contains a reference to file:40 which is on the fallback storage and thus not part
         // of the reference index. As header_link is a link field, this reference is NOT cleared during export.
         $databaseContext->runWithinConnection(function () {
             $this->assertCSVDataSet(__DIR__ . '/../Fixtures/DatabaseExports/pages-and-ttcontent.csv');
@@ -80,8 +80,8 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
         $targetConnectionName = $this->createSqliteConnection('export');
 
         $options = [
-            'pid' => [1],
-            'exclude-record' => ['pages:2', 'tt_content:2'],
+            'pid' => [10],
+            'exclude-record' => ['pages:20', 'tt_content:20'],
             'include-table' => ['pages', 'tt_content'],
             'include-related' => ['sys_file'],
         ];

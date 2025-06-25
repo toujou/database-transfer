@@ -69,6 +69,10 @@ class TransferService
             $exportRelationAnalyzer = new RelationAnalyzer($exportIndex);
             foreach ($exportIndex->getRecords() as $tableName => $record) {
                 $uid = $importIndex->translateUid($tableName, (int) $record['uid']);
+                // Pid is a special relation, that is not tracked via refindex
+                if (isset($record['pid']) && $record['pid'] > 0) {
+                    $record['pid'] = $importIndex->translateUid('pages', (int) $record['pid']);
+                }
 
                 $relations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int) $record['uid']));
                 $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relations);
@@ -78,18 +82,15 @@ class TransferService
                     }
                 }
 
-                unset($row['uid']);
                 $this->updateRow($targetDatabase, $tableName, $record, ['uid' => $uid], $tableColumnNames[$tableName]);
             }
 
-            foreach ($missing as $ident => $row) {
+            foreach ($missing as $row) {
                 $this->deleteRows($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
                 $this->deleteRows($targetDatabase, $row['tablename'], ['uid' => $row['targetuid']]);
                 $importIndex->removeFromIndex($row['tablename'], $row['targetuid']);
             }
         });
-
-        return;
     }
 
     private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $types): int
