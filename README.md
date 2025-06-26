@@ -2,6 +2,9 @@
 
 Enables you to transfer parts of the TYPO3 database to another database. This database can then be used either on its own as new TYPO3 instance or used to import data to another TYPO3 instance. Especially SQLite is useful as a transport vehicle for this.
 
+> [!WARNING]  
+> This package is still in early development und mostly unfinished. It's definitely not ready for production.
+
 ## Use Cases (not exhaustive, to be continued)
 
 * Separate a site from a multisite instance
