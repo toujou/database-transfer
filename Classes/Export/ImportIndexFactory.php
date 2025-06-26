@@ -9,8 +9,6 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 
 class ImportIndexFactory
 {
-    public const TABLENAME_REFERENCE_INDEX = 'sys_refindex';
-
     public function __construct(
         private readonly ConnectionPool $connectionPool
     ) {

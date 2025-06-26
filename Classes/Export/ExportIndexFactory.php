@@ -78,6 +78,7 @@ class ExportIndexFactory
                 $expr = $query->expr();
                 $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
 
+                // TODO replace this with RelationAnalyzer as this doesn't cater for backwards pointing relations like sys_category_record_mm
                 $refindexSubquery = $exportIndex->getConnection()->createQueryBuilder();
                 $refindexSubquery->getRestrictions()->removeAll()->add(new DeletedRestriction());
                 $refindexSubquery->select('ref_uid')->from(self::TABLENAME_REFERENCE_INDEX, 'ri');

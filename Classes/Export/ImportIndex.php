@@ -164,29 +164,6 @@ class ImportIndex
         }
     }
 
-    public function getImportIndexTableName(): string
-    {
-        return $this->importIndexTableName;
-    }
-
-    public function getIndex(): \Generator
-    {
-        $query = $this->connection->createQueryBuilder();
-        $query->getRestrictions()->removeAll()->add(new DeletedRestriction());
-        $query->select('ex.*')->from($this->importIndexTableName, 'ex');
-
-        $result = $query->executeQuery();
-        foreach ($result->iterateAssociative() as $row) {
-            yield $this->importIndexTableName => $row;
-        }
-        $result->free();
-    }
-
-    public function getFromIndex(string $tableName, int $sourceUid): ?array
-    {
-        return $this->index[$tableName][$sourceUid] ?? null;
-    }
-
     public function removeFromIndex(string $tableName, int $sourceUid): void
     {
         unset($this->index[$tableName][$sourceUid]);
@@ -211,41 +188,6 @@ class ImportIndex
         $this->connection->insert($this->importIndexTableName, $record);
 
         return $record;
-    }
-
-    public function getRecordsWithIndex(): \Generator
-    {
-        foreach ($this->index as $recordTableName => $records) {
-            $query = $this->connection->createQueryBuilder();
-            $expr = $query->expr();
-            $query->getRestrictions()->removeAll()->add(new DeletedRestriction());
-            $query
-                ->select('rt.*')
-                ->addSelectLiteral('ex.sourceuid AS _sourceUid')
-                ->from($recordTableName, 'rt')
-                ->join(
-                    'rt',
-                    $this->importIndexTableName,
-                    'ex',
-                    (string) $expr->and(
-                        $expr->eq('ex.targetuid', 'rt.uid'),
-                        $expr->eq('ex.tablename', $query->quote($recordTableName)),
-                        $expr->neq('ex.type', $query->quote('static'))
-                    )
-                );
-            $result = $query->executeQuery();
-            foreach ($result->iterateAssociative() as $row) {
-                $sourceUid = (int) $row['_sourceUid'];
-                unset($row['_sourceUid']);
-                $index = $this->getFromIndex($recordTableName, $sourceUid);
-                if (null === $index) {
-                    throw new \UnexpectedValueException('Record ' . $row['uid'] . ' in table ' . $recordTableName . ' does not exist in import index', 1741853372);
-                }
-                $index['sourceuid'] = $sourceUid;
-                yield $recordTableName => ['record' => $row, 'index' => $index];
-            }
-            $result->free();
-        }
     }
 
     private function calulateReferenceIndexRelationHash(array $relation): string

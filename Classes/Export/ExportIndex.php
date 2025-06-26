@@ -176,30 +176,6 @@ class ExportIndex
         }
     }
 
-    public function getReferenceIndex(): \Generator
-    {
-        $query = $this->connection->createQueryBuilder();
-        $expr = $query->expr();
-        $query->getRestrictions()->removeAll()->add(new DeletedRestriction());
-        $query
-            ->select('ri.*')
-            ->from('sys_refindex', 'ri');
-
-        $query->join('ri', $this->indexTableName, 'exl', 'exl.tablename = ri.tablename AND exl.sourceuid = ri.recuid');
-        $query->leftJoin('ri', $this->indexTableName, 'exr', 'exr.tablename = ri.ref_table AND exr.sourceuid = ri.ref_uid');
-
-        $query->where($expr->or(
-            $expr->eq('ri.ref_table', $query->quote('_STRING')),
-            $expr->isNotNull('exr.sourceuid'),
-        ));
-
-        $result = $query->executeQuery();
-        foreach ($result->iterateAssociative() as $row) {
-            yield 'sys_refindex' => $row;
-        }
-        $result->free();
-    }
-
     public function getIndex(): \Generator
     {
         $query = $this->connection->createQueryBuilder();
