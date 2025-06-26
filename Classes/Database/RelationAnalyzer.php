@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Database;
 
+use Doctrine\DBAL\ParameterType;
 use Toujou\DatabaseTransfer\Export\ExportIndex;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 
@@ -80,10 +81,10 @@ class RelationAnalyzer
 
             $execQuery = $this->relationsQueryCache[$tableName] = function (string $tableName, int $uid) use ($preparedQuery, $hasForeignFieldConstraints) {
                 $preparedQuery->bindValue(1, $tableName);
-                $preparedQuery->bindValue(2, $uid, \PDO::PARAM_INT);
+                $preparedQuery->bindValue(2, $uid, ParameterType::INTEGER);
                 if ($hasForeignFieldConstraints) {
                     $preparedQuery->bindValue(3, $tableName);
-                    $preparedQuery->bindValue(4, $uid, \PDO::PARAM_INT);
+                    $preparedQuery->bindValue(4, $uid, ParameterType::INTEGER);
                 }
 
                 return $preparedQuery->executeQuery();

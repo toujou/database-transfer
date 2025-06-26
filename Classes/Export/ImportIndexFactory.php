@@ -10,14 +10,15 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 class ImportIndexFactory
 {
     public function __construct(
-        private readonly ConnectionPool $connectionPool
+        private readonly ConnectionPool $connectionPool,
+        private readonly SchemaService $schemaService,
     ) {
     }
 
     public function createImportIndex(Selection $selection, string $transferName): ImportIndex
     {
         $connection = $this->connectionPool->getConnectionByName($transferName);
-        $importIndex = new ImportIndex($connection, new SchemaService(), $transferName);
+        $importIndex = new ImportIndex($connection, $this->schemaService, $transferName);
 
         return $importIndex;
     }

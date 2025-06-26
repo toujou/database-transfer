@@ -39,6 +39,7 @@ class ExportIndex
         if ($query->getConnection() !== $this->connection) {
             throw new \InvalidArgumentException('The database connection of the given query doesn\'t match the expected database connection', 1750924837);
         }
+
         return (int) $this->connection->executeStatement(
             \sprintf(
                 'INSERT INTO %s (tablename,sourceuid,type) %s',

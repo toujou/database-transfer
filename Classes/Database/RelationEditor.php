@@ -7,6 +7,7 @@ namespace Toujou\DatabaseTransfer\Database;
 use TYPO3\CMS\Core\Configuration\FlexForm\FlexFormTools;
 use TYPO3\CMS\Core\DataHandling\SoftReference\SoftReferenceParserFactory;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
+use TYPO3\CMS\Core\Utility\Exception\MissingArrayPathException;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class RelationEditor
@@ -79,54 +80,37 @@ class RelationEditor
         return $record;
     }
 
-    private function translateRelationsInFlexColumn(array $relations, mixed $tableName, string $columnName, array $record): mixed
+    private function translateRelationsInFlexColumn(array $relations, string $tableName, string $columnName, array $record): mixed
     {
-        // FlexFormTools->traverseFlexFormXMLData expects a weird callback object, so we're building it on the fly here
-        $callBackObj = new class($this, $relations) {
-            private array $relationsByFlexpointer = [];
-
-            public array $changes = [];
-
-            public function __construct(
-                private RelationEditor $relationHandler,
-                array $relations
-            ) {
-                foreach ($relations as $relation) {
-                    if (empty($relation['original']['flexpointer'])) {
-                        continue;
-                    }
-
-                    // ReferenceIndex stores flexpointers in a slightly different format than the one FlexFormTools uses
-                    $flexpointer = 'data/' . trim($relation['original']['flexpointer'], '/');
-                    if (!isset($this->relationsByFlexpointer[$flexpointer])) {
-                        $this->relationsByFlexpointer[$flexpointer] = [];
-                    }
-                    $this->relationsByFlexpointer[$flexpointer][] = $relation;
-                }
-            }
-
-            public function flexTraverseCalback(array $dsArr, mixed $dataValue, array $PA, string $flexpointer): void
-            {
-                if (!isset($this->relationsByFlexpointer[$flexpointer])) {
-                    return;
-                }
-                $processedValue = $this->relationHandler->translateForwardPointingRelationsInColumn($this->relationsByFlexpointer[$flexpointer], $dataValue, $dsArr['config']);
-                if ($processedValue !== $dataValue) {
-                    $this->changes[$flexpointer] = $processedValue;
-                }
-            }
-        };
-
         $flexFormTools = GeneralUtility::makeInstance(FlexFormTools::class);
-        $flexFormTools->traverseFlexFormXMLData($tableName, $columnName, $record, $callBackObj, 'flexTraverseCalback');
+        $dataStructureIdentifier = $flexFormTools->getDataStructureIdentifier($GLOBALS['TCA'][$tableName]['columns'][$columnName], $tableName, $columnName, $record);
+        $dataStructureArray = $flexFormTools->parseDataStructureByIdentifier($dataStructureIdentifier);
+        $flexFormData = GeneralUtility::xml2array($record[$columnName]);
+        $flexFormDataChanged = false;
 
-        if (count($callBackObj->changes) > 0) {
-            $flexData = GeneralUtility::xml2array($record[$columnName]);
-            foreach ($callBackObj->changes as $flexpointer => $changedValue) {
-                $flexData = ArrayUtility::setValueByPath($flexData, $flexpointer, $changedValue);
+        $relationsByFlexpointer = [];
+        foreach ($relations as $relation) {
+            if (empty($relation['original']['flexpointer'])) {
+                continue;
             }
+            $relationsByFlexpointer[$relation['original']['flexpointer']][] = $relation;
+        }
 
-            return $flexFormTools->flexArray2Xml($flexData, true);
+        foreach ($relationsByFlexpointer as $flexpointer => $relationsOfFlexpointer) {
+            $flexPointer = trim($flexpointer, '/');
+
+            try {
+                $fieldConfig = ArrayUtility::getValueByPath($dataStructureArray, 'sheets/' . str_replace(['/lDEF/', '/vDEF'], ['/ROOT/el/', '/config'], $flexPointer));
+                $dataValue = ArrayUtility::getValueByPath($flexFormData, 'data/' . $flexPointer);
+                $translatedValue = $this->translateForwardPointingRelationsInColumn($relationsOfFlexpointer, $dataValue, $fieldConfig);
+                $flexFormData = ArrayUtility::setValueByPath($flexFormData, 'data/' . $flexPointer, $translatedValue);
+                $flexFormDataChanged = true;
+            } catch (MissingArrayPathException $arrayPathException) {
+            }
+        }
+
+        if ($flexFormDataChanged) {
+            return $flexFormTools->flexArray2Xml($flexFormData, true);
         }
 
         return $record[$columnName];
@@ -135,27 +119,27 @@ class RelationEditor
     /**
      * @internal This method needs to be public, so the callback object in ->removeRelationsFromFlexColumn can call it.
      */
-    public function translateForwardPointingRelationsInColumn(array $relations, mixed $value, array $columnConfig)
+    public function translateForwardPointingRelationsInColumn(array $relations, mixed $value, array $fieldConfig)
     {
         if (empty($value)) {
             return $value;
         }
 
-        if ('group' === $columnConfig['type'] && isset($columnConfig['allowed'])) {
-            $foreignTables = GeneralUtility::trimExplode(',', $columnConfig['allowed'], true);
-            $prependTableName = $columnConfig['prepend_tname'] ?? count($foreignTables) > 1;
+        if ('group' === $fieldConfig['type'] && isset($fieldConfig['allowed'])) {
+            $foreignTables = GeneralUtility::trimExplode(',', $fieldConfig['allowed'], true);
+            $prependTableName = $fieldConfig['prepend_tname'] ?? count($foreignTables) > 1;
 
             $translationMap = \array_combine(
                 \array_map(fn (array $relation) => ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['original']['ref_uid'] ?? 0), $relations),
-                \array_map(fn (array $relation) => !$relation['translated']['ref_uid'] ? null : ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['translated']['ref_uid']), $relations),
+                \array_map(fn (array $relation) => empty($relation['translated']['ref_uid']) ? null : ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['translated']['ref_uid']), $relations),
             );
 
             return $this->translateList($value, $translationMap);
         }
 
-        if (\in_array($columnConfig['type'], ['select', 'inline', 'category', 'file']) &&
-            isset($columnConfig['foreign_table']) &&
-            !isset($columnConfig['foreign_field'])) {
+        if (\in_array($fieldConfig['type'], ['select', 'inline', 'category', 'file']) &&
+            isset($fieldConfig['foreign_table']) &&
+            !isset($fieldConfig['foreign_field'])) {
             $translationMap = \array_combine(
                 \array_map(fn (array $relation) => $relation['original']['ref_uid'] ?? 0, $relations),
                 \array_map(fn (array $relation) => $relation['translated']['ref_uid'] ?? null, $relations),
@@ -165,11 +149,11 @@ class RelationEditor
         }
 
         // Add a softref definition for link fields if the TCA does not specify one already
-        if ('link' === $columnConfig['type'] && empty($columnConfig['softref'])) {
-            $columnConfig['softref'] = 'typolink';
+        if ('link' === $fieldConfig['type'] && empty($fieldConfig['softref'])) {
+            $fieldConfig['softref'] = 'typolink';
         }
-        if (isset($columnConfig['softref']) && count(\array_filter(\array_column(\array_column($relations, 'original'), 'softref_key'))) > 0) {
-            return $this->translateRelationsFromSoftReferences($relations, $value, $columnConfig['softref']);
+        if (isset($fieldConfig['softref']) && count(\array_filter(\array_column(\array_column($relations, 'original'), 'softref_key'))) > 0) {
+            return $this->translateRelationsFromSoftReferences($relations, $value, $fieldConfig['softref']);
         }
 
         return $value;
@@ -177,7 +161,7 @@ class RelationEditor
 
     private function translateList(mixed $list, array $translationMap): mixed
     {
-        $existingElements = GeneralUtility::trimExplode(',', $list, true);
+        $existingElements = GeneralUtility::trimExplode(',', (string) $list, true);
         $translatedElements = \array_map(fn ($source) => $translationMap[$source], $existingElements);
         $translatedElements = \array_filter($translatedElements);
 

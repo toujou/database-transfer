@@ -10,14 +10,20 @@ use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Schema\UniqueConstraint;
 use Doctrine\DBAL\Types\IntegerType;
 use Doctrine\DBAL\Types\StringType;
-use Toujou\DatabaseTransfer\DBAL\TableMigrator;
+use Toujou\DatabaseTransfer\Schema\SchemaParser;
 use TYPO3\CMS\Core\Database\Connection;
-use TYPO3\CMS\Core\Database\Schema\SchemaMigrator;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Schema\ConnectionMigrator;
 use TYPO3\CMS\Core\Database\Schema\SqlReader;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class SchemaService
 {
+    public function __construct(
+        private readonly SchemaParser $schemaParser
+    ) {
+    }
+
     public function getIndexTableName(string $type, string $transferName)
     {
         return "sys_databasetransfer_{$type}_{$transferName}";
@@ -26,16 +32,17 @@ class SchemaService
     public function establishIndexTable(Connection $targetDatabase, string $type, string $transferName): string
     {
         $schemaManager = $targetDatabase->createSchemaManager();
+        $schemaConfig = $schemaManager->createSchemaConfig();
         $transferIndexTableName = $this->getIndexTableName($type, $transferName);
-        if ($schemaManager->tablesExist($transferIndexTableName)) {
+        if ($schemaManager->tablesExist([$transferIndexTableName])) {
             return $transferIndexTableName;
         }
         $exportSelectionTable = new Table(
             $transferIndexTableName,
             [
-                new Column('tablename', new StringType(), ['notnull' => true]),
+                new Column('tablename', new StringType(), ['length' => $schemaConfig->getMaxIdentifierLength(), 'notnull' => true]),
                 new Column('sourceuid', new IntegerType(), ['notnull' => true]),
-                new Column('type', new StringType(), ['notnull' => true]),
+                new Column('type', new StringType(), ['length' => 8, 'notnull' => true]),
                 new Column('targetuid', new IntegerType(), ['default' => null, 'notnull' => false]),
             ],
             [new Index('idx_tablename_sourceuid_' . crc32($transferIndexTableName), ['tablename', 'sourceuid'])],
@@ -46,7 +53,7 @@ class SchemaService
             ],
             []
         );
-        $schemaManager->createTable($exportSelectionTable);
+        ConnectionMigrator::create(ConnectionPool::DEFAULT_CONNECTION_NAME, $targetDatabase, [$exportSelectionTable])->install();
 
         return $transferIndexTableName;
     }
@@ -72,9 +79,11 @@ class SchemaService
     {
         $sqlReader = GeneralUtility::makeInstance(SqlReader::class);
         $databaseDefinitions = $sqlReader->getCreateTableStatementArray($sqlReader->getTablesDefinitionString());
-        $schemaMigrator = GeneralUtility::makeInstance(SchemaMigrator::class);
-        $tables = \array_filter($schemaMigrator->parseCreateTableStatements($databaseDefinitions), fn (Table $table) => \in_array($table->getName(), $tableNames));
-        (new TableMigrator($targetDatabase, $tables))->install();
+        $tables = \array_filter(
+            $this->schemaParser->parseCreateTableStatements($databaseDefinitions),
+            fn (Table $table) => \in_array($table->getName(), $tableNames)
+        );
+        ConnectionMigrator::create(ConnectionPool::DEFAULT_CONNECTION_NAME, $targetDatabase, $tables)->install();
     }
 
     public function getTableColumnMeta(Connection $connection, array $tableNames)

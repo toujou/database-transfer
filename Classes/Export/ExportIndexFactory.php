@@ -16,14 +16,15 @@ class ExportIndexFactory
     public const TABLENAME_REFERENCE_INDEX = 'sys_refindex';
 
     public function __construct(
-        private readonly ConnectionPool $connectionPool
+        private readonly ConnectionPool $connectionPool,
+        private readonly SchemaService $schemaService,
     ) {
     }
 
     public function createExportIndex(Selection $selection, string $transferName): ExportIndex
     {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLENAME_REFERENCE_INDEX);
-        $exportIndex = new ExportIndex($connection, new SchemaService(), $transferName);
+        $exportIndex = new ExportIndex($connection, $this->schemaService, $transferName);
 
         $this->addDirectlySelectedRecords($selection, $exportIndex);
         $this->addRelatedRecords($selection, $exportIndex);
@@ -66,6 +67,7 @@ class ExportIndexFactory
     private function addRelatedRecords(Selection $selection, ExportIndex $exportIndex): void
     {
         $relatedTables = \array_unique(\array_merge($selection->getRelatedTables(), $selection->getStaticTables()));
+        // TODO recurse until no records are inserted anymore. Throw implementation error exception when depth limiter is hit.
         $depthLimiter = 0;
         do {
             $recordsFound = 0;
@@ -78,7 +80,8 @@ class ExportIndexFactory
                 $expr = $query->expr();
                 $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
 
-                // TODO replace this with RelationAnalyzer as this doesn't cater for backwards pointing relations like sys_category_record_mm
+                // TODO replace this with RelationAnalyzer as
+                // this doesn't cater for backwards pointing relations like sys_category_record_mm
                 $refindexSubquery = $exportIndex->getConnection()->createQueryBuilder();
                 $refindexSubquery->getRestrictions()->removeAll()->add(new DeletedRestriction());
                 $refindexSubquery->select('ref_uid')->from(self::TABLENAME_REFERENCE_INDEX, 'ri');

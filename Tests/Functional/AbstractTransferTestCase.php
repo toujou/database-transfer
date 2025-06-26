@@ -28,7 +28,6 @@ abstract class AbstractTransferTestCase extends FunctionalTestCase
         $fileName = $this->instancePath . '/typo3temp/var/transient/' . $filePrefix . '_' . $connectionName . '.sqlite';
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = [
             'url' => 'pdo-sqlite:///' . $fileName,
-            'driver' => '',
             'wrapperClass' => FastImportConnection::class,
         ];
         $this->testFilesToDelete[] = $fileName;
