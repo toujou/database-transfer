@@ -21,7 +21,7 @@ class SchemaParser
         $this->migrator = new class($connectionPool, $parser, $defaultTcaSchema) extends SchemaMigrator {
             public function parseCreateTableStatements(array $statements): array
             {
-                return parent::parseCreateTableStatements($statements); 
+                return parent::parseCreateTableStatements($statements);
             }
         };
     }
