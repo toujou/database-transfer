@@ -153,7 +153,7 @@ class RelationEditor
             return $this->translateList($value, $translationMap);
         }
 
-        if (\in_array($columnConfig['type'], ['select', 'inline', 'categories', 'category', 'file']) &&
+        if (\in_array($columnConfig['type'], ['select', 'inline', 'category', 'file']) &&
             isset($columnConfig['foreign_table']) &&
             !isset($columnConfig['foreign_field'])) {
             $translationMap = \array_combine(

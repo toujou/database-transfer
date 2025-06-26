@@ -47,7 +47,7 @@ class RelationAnalyzer
     {
         if (
             !isset($columnConfig['type'], $columnConfig['foreign_table'], $columnConfig['foreign_field']) ||
-            !\in_array($columnConfig['type'], ['select', 'inline', 'categories', 'file'])
+            !\in_array($columnConfig['type'], ['select', 'inline', 'category', 'file'])
         ) {
             return $foreignFields;
         }
