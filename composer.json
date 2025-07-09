@@ -9,8 +9,12 @@
     },
     "require-dev": {
         "dfau/coding-standard": "^2.1.0",
-        "typo3/cms-styleguide": "^13.4",
-        "typo3/testing-framework": "^9.1"
+        "ergebnis/composer-normalize": "~2.42.0",
+        "friendsofphp/php-cs-fixer": "^3.52",
+        "phpstan/phpstan": "^1.10",
+        "phpunit/phpunit": "^11.0.3",
+        "typo3/cms-install": "^13.3 || dev-main",
+        "typo3/testing-framework": "dev-main"
     },
     "autoload": {
         "psr-4": {
@@ -28,7 +32,8 @@
         "allow-plugins": {
             "typo3/class-alias-loader": true,
             "typo3/cms-composer-installers": true,
-            "dealerdirect/phpcodesniffer-composer-installer": true
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "ergebnis/composer-normalize": true
         }
     },
     "extra": {
