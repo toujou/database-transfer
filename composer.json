@@ -45,8 +45,5 @@
             "web-dir": ".Build/Web",
             "extension-key": "toujou_database_transfer"
         }
-    },
-    "repositories": [
-        {"type": "composer", "url": "https://toujou-repo.kodzutsumi-senta.toujou.systems"}
-    ]
+    }
 }
