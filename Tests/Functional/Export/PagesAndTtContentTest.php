@@ -64,7 +64,7 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
                 'pages',
                 'tt_content',
                 'sys_databasetransfer_import',
-            ]
+            ],
         );
 
         // tt_content:2 header_link field contains a reference to file:40 which is on the fallback storage and thus not part
@@ -103,7 +103,7 @@ final class PagesAndTtContentTest extends AbstractTransferTestCase
                 'tt_content',
                 'sys_file',
                 'sys_databasetransfer_import',
-            ]
+            ],
         );
         // tt_content:2 header_link field contains a reference to file:4 which is on the fallback storage and thus not part
         // of the reference index. As header_link is a link field, this reference is NOT cleared during export.

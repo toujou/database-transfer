@@ -11,9 +11,8 @@ class DatabaseContext
     public function __construct(
         private readonly Connection $connection,
         private readonly string $connectionName,
-        private readonly array $mappedTableNames
-    ) {
-    }
+        private readonly array $mappedTableNames,
+    ) {}
 
     public function runWithinConnection(callable $callback): void
     {
@@ -23,7 +22,7 @@ class DatabaseContext
             $tableMappingBackup = $GLOBALS['TYPO3_CONF_VARS']['DB']['TableMapping'] ?? [];
             $GLOBALS['TYPO3_CONF_VARS']['DB']['TableMapping'] = \array_merge(
                 $tableMappingBackup,
-                \array_fill_keys($this->mappedTableNames, $this->connectionName)
+                \array_fill_keys($this->mappedTableNames, $this->connectionName),
             );
 
             $callback($this->connection);

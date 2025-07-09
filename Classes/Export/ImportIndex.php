@@ -20,7 +20,7 @@ class ImportIndex
     public function __construct(
         private readonly Connection $connection,
         private readonly SchemaService $schemaService,
-        string $transferName
+        string $transferName,
     ) {
         $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $transferName);
         $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $transferName);
@@ -63,7 +63,7 @@ class ImportIndex
                 ->leftJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.targetuid')
                 ->where('ex.sourceuid IS NULL'),
         ];
-        $sql = \implode(' UNION ', \array_map(fn (QueryBuilder $query) => $query->getSQL(), $queries));
+        $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
         $result = $this->connection->executeQuery($sql);
 
         $unknown = [];
@@ -74,23 +74,23 @@ class ImportIndex
             if (isset($row['im_sourceuid'], $row['ex_sourceuid'])) {
                 $existing[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
                     'tablename' => $row['im_tablename'],
-                    'sourceuid' => (int) $row['im_sourceuid'],
+                    'sourceuid' => (int)$row['im_sourceuid'],
                     'type' => $row['im_type'],
-                    'targetuid' => (int) $row['im_targetuid'],
+                    'targetuid' => (int)$row['im_targetuid'],
                 ];
             } elseif (isset($row['ex_sourceuid'])) {
                 $unknown[$row['ex_tablename'] . '_' . $row['ex_sourceuid']] = [
                     'tablename' => $row['ex_tablename'],
-                    'sourceuid' => (int) $row['ex_sourceuid'],
+                    'sourceuid' => (int)$row['ex_sourceuid'],
                     'type' => $row['ex_type'],
-                    'targetuid' => (int) $row['ex_targetuid'],
+                    'targetuid' => (int)$row['ex_targetuid'],
                 ];
             } elseif (isset($row['im_sourceuid'])) {
                 $unknown[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
                     'tablename' => $row['im_tablename'],
-                    'sourceuid' => (int) $row['im_sourceuid'],
+                    'sourceuid' => (int)$row['im_sourceuid'],
                     'type' => $row['im_type'],
-                    'targetuid' => (int) $row['im_targetuid'],
+                    'targetuid' => (int)$row['im_targetuid'],
                 ];
             } else {
                 throw new \UnexpectedValueException('Export index to import index comparison returned an unexpected row.', 1741349615);
@@ -111,11 +111,11 @@ class ImportIndex
         $original = $translated = $relation;
         $translated['recuid'] = $this->translateUid($translated['tablename'], $translated['recuid']);
 
-        if ('_STRING' !== $relation['ref_table']) {
+        if ($relation['ref_table'] !== '_STRING') {
             $translated['ref_uid'] = $this->translateUid($translated['ref_table'], $translated['ref_uid']);
         }
 
-        if (null === $translated['recuid'] || ('_STRING' !== $translated['ref_table'] && null === $translated['ref_uid'])) {
+        if ($translated['recuid'] === null || ($translated['ref_table'] !== '_STRING' && $translated['ref_uid'] === null)) {
             $translated = null;
         } else {
             $translated['hash'] = $this->calulateReferenceIndexRelationHash($translated);
@@ -135,13 +135,13 @@ class ImportIndex
                 'mm',
                 $this->importIndexTableName,
                 'exl',
-                (string) $expr->eq('exl.targetuid', 'mm.uid_local')
+                (string)$expr->eq('exl.targetuid', 'mm.uid_local'),
             );
             $query->join(
                 'mm',
                 $this->importIndexTableName,
                 'exr',
-                (string) $expr->eq('exr.targetuid', 'mm.uid_foreign')
+                (string)$expr->eq('exr.targetuid', 'mm.uid_foreign'),
             );
 
             $query->where($expr->or(...\array_map(function (array $queryParameters) use ($query, $expr) {
@@ -149,10 +149,10 @@ class ImportIndex
                     $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
                     $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
                     ...\array_map(
-                        fn (string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
+                        fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
                         \array_keys($queryParameters['matchFields']),
-                        $queryParameters['matchFields']
-                    )
+                        $queryParameters['matchFields'],
+                    ),
                 );
             }, $mmQueryParameters)));
 

@@ -15,9 +15,8 @@ class SelectionFactory
 
     public function __construct(
         private readonly SiteFinder $siteFinder,
-        private readonly PageRepository $pageRepository
-    ) {
-    }
+        private readonly PageRepository $pageRepository,
+    ) {}
 
     public function buildFromCommandOptions(array $options): Selection
     {
@@ -35,15 +34,15 @@ class SelectionFactory
     {
         $rootPageIds = [];
 
-        if (null !== $siteIdentifier) {
+        if ($siteIdentifier !== null) {
             $rootPageIds[] = [$this->siteFinder->getSiteByIdentifier($siteIdentifier)->getRootPageId(), self::DEPTH_MAX];
         }
 
         foreach ($pid as $pageId) {
-            [$pageId, $depth] = explode(':', (string) $pageId) + [null, self::DEPTH_MAX];
-            $pageId = (int) $pageId;
-            $depth = (int) $depth;
-            if (0 === $pageId || (!in_array($pageId, $excludedPageIds) && $this->pageRepository->getPage_noCheck($pageId))) {
+            [$pageId, $depth] = explode(':', (string)$pageId) + [null, self::DEPTH_MAX];
+            $pageId = (int)$pageId;
+            $depth = (int)$depth;
+            if ($pageId === 0 || (!in_array($pageId, $excludedPageIds) && $this->pageRepository->getPage_noCheck($pageId))) {
                 $rootPageIds[] = [$pageId, $depth];
             }
         }
@@ -53,7 +52,7 @@ class SelectionFactory
             $pageIds = \array_merge(
                 $pageIds,
                 [$pageId],
-                $this->pageRepository->getDescendantPageIdsRecursive($pageId, $depth, 0, $excludedPageIds, true)
+                $this->pageRepository->getDescendantPageIdsRecursive($pageId, $depth, 0, $excludedPageIds, true),
             );
         }
 
@@ -66,21 +65,21 @@ class SelectionFactory
             unset($includedTables[\array_search(self::TABLES_ALL, $includedTables, true)]);
             $includedTables = \array_merge(\array_filter(
                 \array_keys($GLOBALS['TCA']),
-                fn (string $tableName) => \in_array($GLOBALS['TCA'][$tableName]['ctrl']['rootLevel'] ?? 0, [0, -1]) || $includeRootLevel
+                fn(string $tableName) => \in_array($GLOBALS['TCA'][$tableName]['ctrl']['rootLevel'] ?? 0, [0, -1]) || $includeRootLevel,
             ), $includedTables);
         } else {
-            $includedTables = \array_filter($includedTables, fn (string $tableName) => \array_key_exists($tableName, $GLOBALS['TCA']));
+            $includedTables = \array_filter($includedTables, fn(string $tableName) => \array_key_exists($tableName, $GLOBALS['TCA']));
         }
 
-        return \array_filter($includedTables, fn ($tableName) => !\in_array($tableName, $excludeTables, true));
+        return \array_filter($includedTables, fn($tableName) => !\in_array($tableName, $excludeTables, true));
     }
 
     private function getExcludedRecords(array $excludedRecords = [])
     {
         $parsedExcludedRecords = [];
         foreach ($excludedRecords as $excludedRecord) {
-            [$tableName, $uid] = explode(':', (string) $excludedRecord) + [null, 0];
-            $uid = (int) $uid;
+            [$tableName, $uid] = explode(':', (string)$excludedRecord) + [null, 0];
+            $uid = (int)$uid;
             if (\array_key_exists($tableName, $GLOBALS['TCA'])) {
                 $parsedExcludedRecords[$tableName][$uid] = $uid;
             }

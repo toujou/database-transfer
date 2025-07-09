@@ -22,7 +22,7 @@ class TransferCommand extends Command
 {
     public function __construct(
         private SelectionFactory $selectionFactory,
-        private TransferService $transferService
+        private TransferService $transferService,
     ) {
         parent::__construct();
     }
@@ -34,7 +34,7 @@ class TransferCommand extends Command
             ->addArgument(
                 'dsn',
                 InputArgument::REQUIRED,
-                'The target database connection string'
+                'The target database connection string',
             )
             ->addOption(
                 'site',
@@ -53,38 +53,38 @@ class TransferCommand extends Command
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
                 'Include all records of this table. Examples: "ALL", "tt_content", "sys_file_reference", etc.',
-                [SelectionFactory::TABLES_ALL]
+                [SelectionFactory::TABLES_ALL],
             )
             ->addOption(
                 'exclude-table',
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
-                'Exclude all records of this table. Examples: "tt_content", "sys_file_reference", etc.'
+                'Exclude all records of this table. Examples: "tt_content", "sys_file_reference", etc.',
             )
             ->addOption(
                 'include-record',
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
-                'Include this specific record. Pattern is "{table}:{record}". Examples: "tt_content:12", etc.'
+                'Include this specific record. Pattern is "{table}:{record}". Examples: "tt_content:12", etc.',
             )
             ->addOption(
                 'exclude-record',
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
-                'Exclude this specific record. Pattern is "{table}:{record}". Examples: "fe_users:3", etc.'
+                'Exclude this specific record. Pattern is "{table}:{record}". Examples: "fe_users:3", etc.',
             )
             ->addOption(
                 'include-related',
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
                 'Include record relations to this table, including the related record. Examples: "ALL", "sys_category", etc.',
-                [SelectionFactory::TABLES_ALL]
+                [SelectionFactory::TABLES_ALL],
             )
             ->addOption(
                 'include-static',
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
-                'Include record relations to this table, excluding the related record. Examples: "ALL", "be_users", etc.'
+                'Include record relations to this table, excluding the related record. Examples: "ALL", "be_users", etc.',
             );
     }
 

@@ -19,9 +19,8 @@ class TransferService
         private readonly ExportIndexFactory $exportIndexFactory,
         private readonly ImportIndexFactory $importIndexFactory,
         private readonly SchemaService $schemaService,
-        private readonly RelationEditor $relationEditor
-    ) {
-    }
+        private readonly RelationEditor $relationEditor,
+    ) {}
 
     public function transfer(Selection $selection, string $transferName): void
     {
@@ -69,19 +68,19 @@ class TransferService
 
             $exportRelationAnalyzer = new RelationAnalyzer($exportIndex);
             foreach ($exportIndex->getRecords() as $tableName => $record) {
-                $uid = $importIndex->translateUid($tableName, (int) $record['uid']);
+                $uid = $importIndex->translateUid($tableName, (int)$record['uid']);
                 // Pid is a special relation, that is not tracked via refindex
                 if (isset($record['pid']) && $record['pid'] > 0) {
                     // TODO This needs some thoughts:
                     // * check whether fallback to 0 is a potential security issue
                     // * if you only export records without pages, it cannot be translated. Should we use the default target pid?
-                    $record['pid'] = $importIndex->translateUid('pages', (int) $record['pid']) ?? 0;
+                    $record['pid'] = $importIndex->translateUid('pages', (int)$record['pid']) ?? 0;
                 }
 
-                $relations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int) $record['uid']));
+                $relations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int)$record['uid']));
                 $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relations);
                 foreach ($relations as $relation) {
-                    if (null !== $relation['translated'] && $tableName === $relation['translated']['tablename']) {
+                    if ($relation['translated'] !== null && $tableName === $relation['translated']['tablename']) {
                         $this->insertRow($targetDatabase, 'sys_refindex', $relation['translated'], $tableColumnMetas['sys_refindex']);
                     }
                 }
@@ -102,7 +101,7 @@ class TransferService
         $row = \array_replace($tableColumnMeta['defaults'], $row);
         $targetDatabase->insert($tableName, $row, $tableColumnMeta['types']);
 
-        return (int) $targetDatabase->lastInsertId($tableName);
+        return (int)$targetDatabase->lastInsertId($tableName);
     }
 
     private function updateRow(Connection $targetDatabase, string $tableName, array $row, array $identifier, array $tableColumnMeta): int

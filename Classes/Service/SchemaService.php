@@ -20,9 +20,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 class SchemaService
 {
     public function __construct(
-        private readonly SchemaParser $schemaParser
-    ) {
-    }
+        private readonly SchemaParser $schemaParser,
+    ) {}
 
     public function getIndexTableName(string $type, string $transferName)
     {
@@ -51,7 +50,7 @@ class SchemaService
                 // This works because targetuid default is null
                 new UniqueConstraint('uc_tablename_targetuid_' . crc32($transferIndexTableName), ['tablename', 'targetuid']),
             ],
-            []
+            [],
         );
         ConnectionMigrator::create(ConnectionPool::DEFAULT_CONNECTION_NAME, $targetDatabase, [$exportSelectionTable])->install();
 
@@ -81,7 +80,7 @@ class SchemaService
         $databaseDefinitions = $sqlReader->getCreateTableStatementArray($sqlReader->getTablesDefinitionString());
         $tables = \array_filter(
             $this->schemaParser->parseCreateTableStatements($databaseDefinitions),
-            fn (Table $table) => \in_array($table->getName(), $tableNames)
+            fn(Table $table) => \in_array($table->getName(), $tableNames),
         );
         ConnectionMigrator::create(ConnectionPool::DEFAULT_CONNECTION_NAME, $targetDatabase, $tables)->install();
     }
@@ -94,15 +93,15 @@ class SchemaService
             $columns = $schemaManager->introspectTable($tableName)->getColumns();
             $columns = \array_combine(
                 // This remapping is nessary as we get eg CType returned as ctype and simple array operations like key intersection doesn't work anymore.
-                \array_map(fn (Column $column) => $column->getName(), $columns),
-                \array_map(fn (Column $column) => $column, $columns),
+                \array_map(fn(Column $column) => $column->getName(), $columns),
+                \array_map(fn(Column $column) => $column, $columns),
             );
             $tableColumnMeta[$tableName] = [
                 'defaults' => \array_map(
-                    fn (Column $column) => 'uid' === $column->getName() ? null : ($column->getDefault() ?? ''),
-                    \array_filter($columns, fn (Column $column) => $column->getNotnull())
+                    fn(Column $column) => $column->getName() === 'uid' ? null : ($column->getDefault() ?? ''),
+                    \array_filter($columns, fn(Column $column) => $column->getNotnull()),
                 ),
-                'types' => \array_map(fn (Column $column) => $column->getType(), $columns),
+                'types' => \array_map(fn(Column $column) => $column->getType(), $columns),
             ];
         }
 

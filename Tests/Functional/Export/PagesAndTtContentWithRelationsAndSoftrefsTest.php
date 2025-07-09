@@ -74,7 +74,7 @@ class PagesAndTtContentWithRelationsAndSoftrefsTest extends AbstractTransferTest
                 'pages',
                 'tt_content',
                 'sys_databasetransfer_import',
-            ]
+            ],
         );
 
         $databaseContext->runWithinConnection(function () {

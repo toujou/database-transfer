@@ -18,8 +18,7 @@ class ExportIndexFactory
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly SchemaService $schemaService,
-    ) {
-    }
+    ) {}
 
     public function createExportIndex(Selection $selection, string $transferName): ExportIndex
     {
@@ -45,10 +44,10 @@ class ExportIndexFactory
             if (!\in_array($tableName, $staticTableNames, true)) {
                 $queryBuilder->select('uid', '*');
                 $queryBuilder->where(match (true) {
-                    'pages' === $tableName => $expr->in('uid', $selectedPageIds),
-                    'sys_file' === $tableName => $expr->in('pid', 0),
-                    'sys_file_metadata' === $tableName => $expr->in('pid', 0),
-                    default => $expr->in('pid', $selectedPageIds)
+                    $tableName === 'pages' => $expr->in('uid', $selectedPageIds),
+                    $tableName === 'sys_file' => $expr->in('pid', 0),
+                    $tableName === 'sys_file_metadata' => $expr->in('pid', 0),
+                    default => $expr->in('pid', $selectedPageIds),
                 });
             }
 
@@ -75,7 +74,7 @@ class ExportIndexFactory
                 $relatedTables,
                 $selection->getSelectedPageIds(),
                 $selection->getStaticTables(),
-                $selection->getExcludedRecords()
+                $selection->getExcludedRecords(),
             ) as $tableName => $query) {
                 $expr = $query->expr();
                 $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
@@ -89,10 +88,10 @@ class ExportIndexFactory
                     'ri',
                     $exportIndex->getIndexTableName(),
                     'exi',
-                    (string) $expr->and(
+                    (string)$expr->and(
                         $expr->eq('ri.recuid', 'exi.sourceuid'),
                         $expr->eq('ri.tablename', 'exi.tablename'),
-                    )
+                    ),
                 );
                 $refindexSubquery->where($expr->in('ref_table', $query->quote($tableName)));
 
@@ -118,7 +117,7 @@ class ExportIndexFactory
             $selection->getSelectedTables(),
             $selection->getSelectedPageIds(),
             [],
-            $selection->getExcludedRecords()
+            $selection->getExcludedRecords(),
         ) as $tableName => $query) {
             $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', $query->quote('included') . ' AS type');
             $exportIndex->addRecordsToIndexFromQuery($query);
@@ -163,9 +162,9 @@ class ExportIndexFactory
             : \array_column(
                 \array_intersect_key(
                     $GLOBALS['TCA'][$relation['ref_table']]['columns'],
-                    \array_flip($columnConfig['MM_oppositeUsage'][$relation['ref_table']])
+                    \array_flip($columnConfig['MM_oppositeUsage'][$relation['ref_table']]),
                 ),
-                'config'
+                'config',
             );
         foreach ($relationConfigs as $relationConfig) {
             $mmTableName = $relationConfig['MM'];

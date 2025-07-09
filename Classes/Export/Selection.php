@@ -11,9 +11,8 @@ final class Selection
         private readonly array $selectedTables = [],
         private readonly array $relatedTables = [],
         private readonly array $staticTables = [],
-        private readonly array $excludedRecords = []
-    ) {
-    }
+        private readonly array $excludedRecords = [],
+    ) {}
 
     public function getSelectedPageIds(): array
     {

@@ -66,7 +66,7 @@ final class PagesAndCategoriesTest extends AbstractTransferTestCase
                 'sys_category',
                 'sys_category_record_mm',
                 'sys_databasetransfer_import',
-            ]
+            ],
         );
 
         // tt_content:2 header_link field contains a reference to file:40 which is on the fallback storage and thus not part

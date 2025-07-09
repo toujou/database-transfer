@@ -12,8 +12,7 @@ class ImportIndexFactory
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly SchemaService $schemaService,
-    ) {
-    }
+    ) {}
 
     public function createImportIndex(Selection $selection, string $transferName): ImportIndex
     {

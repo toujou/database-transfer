@@ -55,8 +55,8 @@ class PagesAndTtContentWithImagesTest extends AbstractTransferTestCase
     #[Test]
     public function exportPagesAndRelatedTtContentWithImagesButNotIncluded(): void
     {
-        $this->markTestIncomplete(
-            'Files export has not been implemented yet.'
+        self::markTestIncomplete(
+            'Files export has not been implemented yet.',
         );
 
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file.csv');
@@ -102,7 +102,7 @@ class PagesAndTtContentWithImagesTest extends AbstractTransferTestCase
                 'sys_file_reference',
                 'sys_file_storage',
                 'sys_databasetransfer_import',
-            ]
+            ],
         );
 
         return $databaseContext;

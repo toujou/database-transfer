@@ -18,7 +18,7 @@ class ExportIndex
     public function __construct(
         private readonly Connection $connection,
         private readonly SchemaService $schemaService,
-        string $transferName
+        string $transferName,
     ) {
         $this->indexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $transferName);
         $this->schemaService->emptyTable($this->connection, $this->indexTableName);
@@ -40,12 +40,12 @@ class ExportIndex
             throw new \InvalidArgumentException('The database connection of the given query doesn\'t match the expected database connection', 1750924837);
         }
 
-        return (int) $this->connection->executeStatement(
+        return (int)$this->connection->executeStatement(
             \sprintf(
                 'INSERT INTO %s (tablename,sourceuid,type) %s',
                 $query->quoteIdentifier($this->indexTableName),
-                $query->getSQL()
-            )
+                $query->getSQL(),
+            ),
         );
     }
 
@@ -55,8 +55,8 @@ class ExportIndex
             foreach ($indexRows as $row) {
                 $this->connection->update(
                     $this->indexTableName,
-                    ['targetuid' => (int) $row['targetuid']],
-                    ['tablename' => $row['tablename'], 'sourceuid' => $row['sourceuid']]
+                    ['targetuid' => (int)$row['targetuid']],
+                    ['tablename' => $row['tablename'], 'sourceuid' => $row['sourceuid']],
                 );
             }
         });
@@ -92,7 +92,7 @@ class ExportIndex
         return \array_merge(
             ['sys_refindex'],
             \array_keys($this->mmRelations),
-            $this->getRecordTableNames()
+            $this->getRecordTableNames(),
         );
     }
 
@@ -112,11 +112,11 @@ class ExportIndex
                     'rt',
                     $this->indexTableName,
                     'ex',
-                    (string) $expr->and(
+                    (string)$expr->and(
                         $expr->eq('ex.sourceuid', 'rt.uid'),
                         $expr->eq('ex.tablename', $query->quote($recordTableName)),
-                        $expr->neq('ex.type', $query->quote('static'))
-                    )
+                        $expr->neq('ex.type', $query->quote('static')),
+                    ),
                 );
             $result = $query->executeQuery();
             foreach ($result->iterateAssociative() as $row) {
@@ -137,13 +137,13 @@ class ExportIndex
                 'mm',
                 $this->indexTableName,
                 'exl',
-                (string) $expr->eq('exl.sourceuid', 'mm.uid_local')
+                (string)$expr->eq('exl.sourceuid', 'mm.uid_local'),
             );
             $query->join(
                 'mm',
                 $this->indexTableName,
                 'exr',
-                (string) $expr->eq('exr.sourceuid', 'mm.uid_foreign')
+                (string)$expr->eq('exr.sourceuid', 'mm.uid_foreign'),
             );
 
             $queries = \array_map(function (array $queryParameters) use ($query, $expr) {
@@ -159,15 +159,15 @@ class ExportIndex
                             $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
                             $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
                             ...\array_map(
-                                fn (string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
+                                fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
                                 \array_keys($queryParameters['matchFields']),
-                                $queryParameters['matchFields']
-                            )
-                        )
+                                $queryParameters['matchFields'],
+                            ),
+                        ),
                     );
             }, $mmQueryParameters);
 
-            $sql = \implode(' UNION ', \array_map(fn (QueryBuilder $query) => $query->getSQL(), $queries));
+            $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
 
             $result = $this->connection->executeQuery($sql);
             foreach ($result->iterateAssociative() as $row) {

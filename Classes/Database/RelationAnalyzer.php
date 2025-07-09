@@ -15,7 +15,7 @@ class RelationAnalyzer
     private array $foreignFields = [];
 
     public function __construct(
-        private readonly ExportIndex $exportIndex
+        private readonly ExportIndex $exportIndex,
     ) {
         $this->foreignFields = $this->buildForeignFields();
     }
@@ -29,7 +29,7 @@ class RelationAnalyzer
         $foreignFieldRelationsQuery->select('ri.tablename', 'ri.field', 'ri.flexpointer', 'ri.ref_table')->from('sys_refindex', 'ri')
             ->join('ri', $this->exportIndex->getIndexTableName(), 'exr', 'exr.tablename = ri.ref_table AND exr.sourceuid = ri.ref_uid')
             ->where($foreignFieldRelationsExpr->and(
-                $foreignFieldRelationsExpr->eq('ri.softref_key', $foreignFieldRelationsQuery->quote(''))
+                $foreignFieldRelationsExpr->eq('ri.softref_key', $foreignFieldRelationsQuery->quote('')),
             ))
             ->groupBy('ri.tablename', 'ri.field', 'ri.flexpointer', 'ri.ref_table');
         foreach ($foreignFieldRelationsQuery->executeQuery()->iterateAssociative() as $foreignFieldRelation) {
@@ -76,7 +76,7 @@ class RelationAnalyzer
                 $queries[] = $this->buildBackwardsPointingRelationsQuery($tableName);
             }
 
-            $sql = \implode(' UNION ', \array_map(fn (QueryBuilder $query) => $query->getSQL(), $queries));
+            $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
             $preparedQuery = $this->exportIndex->getConnection()->prepare($sql);
 
             $execQuery = $this->relationsQueryCache[$tableName] = function (string $tableName, int $uid) use ($preparedQuery, $hasForeignFieldConstraints) {
@@ -110,17 +110,17 @@ class RelationAnalyzer
                 'ri',
                 $this->exportIndex->getIndexTableName(),
                 'exr',
-                (string) $expr->and(
+                (string)$expr->and(
                     $expr->eq('ri.ref_table', 'exr.tablename'),
-                    $expr->eq('ri.ref_uid', 'exr.sourceuid')
-                )
+                    $expr->eq('ri.ref_uid', 'exr.sourceuid'),
+                ),
             );
 
         $query->where($expr->and(
             $expr->and(
                 $expr->eq('ri.tablename', '?'),
                 $expr->eq('ri.recuid', '?'),
-            )
+            ),
         ));
 
         return $query;
@@ -148,10 +148,10 @@ class RelationAnalyzer
                 'ri',
                 $this->exportIndex->getIndexTableName(),
                 'exl',
-                (string) $expr->and(
+                (string)$expr->and(
                     $expr->eq('ri.tablename', 'exl.tablename'),
                     $expr->eq('ri.recuid', 'exl.sourceuid'),
-                )
+                ),
             );
 
         $query->where($expr->and(
@@ -160,7 +160,7 @@ class RelationAnalyzer
                 $expr->or(...$foreignFieldsConstraints),
                 $expr->eq('ri.ref_table', '?'),
                 $expr->eq('ri.ref_uid', '?'),
-            )
+            ),
         ));
 
         return $query;
