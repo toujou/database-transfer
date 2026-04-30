@@ -6,3 +6,7 @@ services:
 
   Toujou\DatabaseTransfer\:
     resource: '../Classes/*'
+
+  Toujou\DatabaseTransfer\Schema\SchemaMigrator:
+    arguments:
+      $runtime: '@cache.runtime'

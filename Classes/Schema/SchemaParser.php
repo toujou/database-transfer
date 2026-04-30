@@ -5,25 +5,12 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Schema;
 
 use Doctrine\DBAL\Schema\Table;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
-use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Schema\DefaultTcaSchema;
-use TYPO3\CMS\Core\Database\Schema\Parser\Parser;
 
-class SchemaParser
+readonly class SchemaParser
 {
-    private SchemaMigrator $migrator;
-
     public function __construct(
-        ConnectionPool $connectionPool,
-        Parser $parser,
-        DefaultTcaSchema $defaultTcaSchema,
-        #[Autowire(service: 'cache.runtime')]
-        protected FrontendInterface $runtimeCache,
-    ) {
-        $this->migrator = new SchemaMigrator($connectionPool, $parser, $defaultTcaSchema, $runtimeCache);
-    }
+        private SchemaMigrator $schemaMigrator,
+    ) {}
 
     /**
      * @param string[] $statements The SQL CREATE TABLE statements
@@ -32,6 +19,6 @@ class SchemaParser
      */
     public function parseCreateTableStatements(array $statements): array
     {
-        return $this->migrator->parseCreateTableStatements($statements);
+        return $this->schemaMigrator->parseCreateTableStatements($statements);
     }
 }
