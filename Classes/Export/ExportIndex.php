@@ -165,8 +165,8 @@ class ExportIndex
             $queries = \array_map(function (array $queryParameters) use ($query, $expr) {
                 return (clone $query)
                     ->addSelectLiteral(
-                        $query->quote($queryParameters['localTable']) . ' AS _localTable',
-                        $query->quote($queryParameters['foreignTable']) . ' AS _foreignTable',
+                        $query->quote($queryParameters['localTable']) . ' AS _local_table',
+                        $query->quote($queryParameters['foreignTable']) . ' AS _foreign_table',
                     )
                     ->where(
                         $expr->and(

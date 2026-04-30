@@ -53,9 +53,9 @@ class TransferService
                 $this->deleteRow($targetDatabase, $mmTableName, $row);
             }
             foreach ($exportIndex->getMMRecords() as $mmTableName => $row) {
-                $localTable = $row['_localTable'];
-                $foreignTable = $row['_foreignTable'];
-                unset($row['_localTable'], $row['_foreignTable']);
+                $localTable = $row['_local_table'];
+                $foreignTable = $row['_foreign_table'];
+                unset($row['_local_table'], $row['_foreign_table']);
                 $row['uid_local'] = $importIndex->translateUid($localTable, $row['uid_local']);
                 $row['uid_foreign'] = $importIndex->translateUid($foreignTable, $row['uid_foreign']);
                 $this->insertRow($targetDatabase, $mmTableName, $row, $tableColumnMetas[$mmTableName]);
