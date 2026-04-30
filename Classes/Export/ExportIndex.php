@@ -13,6 +13,7 @@ class ExportIndex
 {
     private string $indexTableName;
 
+    /** @var mixed[] */
     private array $mmRelations = [];
 
     public function __construct(
@@ -49,6 +50,9 @@ class ExportIndex
         );
     }
 
+    /**
+     * @param mixed[] $indexRows
+     */
     public function updateIndex(array $indexRows): void
     {
         $this->connection->transactional(function () use ($indexRows) {
@@ -62,6 +66,9 @@ class ExportIndex
         });
     }
 
+    /**
+     * @param mixed[] $mmMatchFields
+     */
     public function addMMRelation(string $mmTableName, string $localTableName, string $foreignTableName, array $mmMatchFields): void
     {
         \asort($mmMatchFields); // Normalize
@@ -73,11 +80,17 @@ class ExportIndex
         $this->mmRelations[$mmTableName][crc32(serialize($mmQuery))] = $mmQuery;
     }
 
+    /**
+     * @return mixed[]
+     */
     public function getMmRelations(): array
     {
         return $this->mmRelations;
     }
 
+    /**
+     * @return string[]
+     */
     public function getRecordTableNames(): array
     {
         $tableNamesQuery = $this->connection->createQueryBuilder();
@@ -87,6 +100,9 @@ class ExportIndex
         return \array_unique(\array_column($tableNamesQuery->executeQuery()->fetchAllAssociative(), 'tablename'));
     }
 
+    /**
+     * @return string[]
+     */
     public function getAllTableNames(): array
     {
         return \array_merge(

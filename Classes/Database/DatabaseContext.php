@@ -8,6 +8,9 @@ use TYPO3\CMS\Core\Database\Connection;
 
 class DatabaseContext
 {
+    /**
+     * @param string[] $mappedTableNames
+     */
     public function __construct(
         private readonly Connection $connection,
         private readonly string $connectionName,

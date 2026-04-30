@@ -8,6 +8,10 @@ use TYPO3\CMS\Core\Database\Connection;
 
 class FastImportConnection extends Connection
 {
+    /**
+     * @param mixed[] $data
+     * @param mixed[] $types
+     */
     protected function ensureDatabaseValueTypes(string $tableName, array &$data, array &$types): void
     {
         // We can skip this, as we only copy raw records between databases.

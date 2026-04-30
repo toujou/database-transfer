@@ -10,12 +10,18 @@ use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\Exception\MissingArrayPathException;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-class RelationEditor
+readonly class RelationEditor
 {
     public function __construct(
         private SoftReferenceParserFactory $softReferenceParserFactory,
     ) {}
 
+    /**
+     * @param mixed[] $record
+     * @param array<int, array{original: array<string, mixed>}> $relationMap
+     *
+     * @return mixed[]
+     */
     public function editRelationsInRecord(string $tableName, int $uid, array $record, array $relationMap): array
     {
         if (empty($relationMap)) {
@@ -79,6 +85,10 @@ class RelationEditor
         return $record;
     }
 
+    /**
+     * @param mixed[] $relations
+     * @param mixed[] $record
+     */
     private function translateRelationsInFlexColumn(array $relations, string $tableName, string $columnName, array $record): mixed
     {
         $flexFormTools = GeneralUtility::makeInstance(FlexFormTools::class);
@@ -109,7 +119,7 @@ class RelationEditor
         }
 
         if ($flexFormDataChanged) {
-            return $flexFormTools->flexArray2Xml($flexFormData, true);
+            return $flexFormTools->flexArray2Xml($flexFormData);
         }
 
         return $record[$columnName];
@@ -117,8 +127,11 @@ class RelationEditor
 
     /**
      * @internal This method needs to be public, so the callback object in ->removeRelationsFromFlexColumn can call it.
+     *
+     * @param mixed[] $relations
+     * @param mixed[] $fieldConfig
      */
-    public function translateForwardPointingRelationsInColumn(array $relations, mixed $value, array $fieldConfig)
+    public function translateForwardPointingRelationsInColumn(array $relations, mixed $value, array $fieldConfig): mixed
     {
         if (empty($value)) {
             return $value;
@@ -158,6 +171,9 @@ class RelationEditor
         return $value;
     }
 
+    /**
+     * @param mixed[] $translationMap
+     */
     private function translateList(mixed $list, array $translationMap): mixed
     {
         $existingElements = GeneralUtility::trimExplode(',', (string)$list, true);
@@ -173,7 +189,10 @@ class RelationEditor
         return $list;
     }
 
-    private function translateRelationsFromSoftReferences(array $relations, mixed $value, $softref): mixed
+    /**
+     * @param mixed[] $relations
+     */
+    private function translateRelationsFromSoftReferences(array $relations, mixed $value, string $softref): mixed
     {
         $representativeRelation = \reset($relations)['original'];
         $parsedValue = $value;
@@ -237,6 +256,12 @@ class RelationEditor
         return \str_replace(\array_keys($softrefValues), $softrefValues, $parsedValue);
     }
 
+    /**
+     * @param mixed[] $column
+     * @param mixed[] $record
+     *
+     * @return mixed[]
+     */
     public function translateBackwardsPointingRelationInColumn(array $column, string $relationTableName, mixed $tableName, int $uid, array $record): array
     {
         $foreignFieldColumnName = $column['config']['foreign_field'];

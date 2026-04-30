@@ -18,6 +18,9 @@ class SelectionFactory
         private readonly PageRepository $pageRepository,
     ) {}
 
+    /**
+     * @param mixed[] $options
+     */
     public function buildFromCommandOptions(array $options): Selection
     {
         $excludedRecords = $this->getExcludedRecords($options['exclude-record'] ?? []);
@@ -30,6 +33,14 @@ class SelectionFactory
         return new Selection($pageIds, $selectedTables, $relatedTables, $staticTables, $excludedRecords);
     }
 
+    /**
+     * @param int[] $pid
+     * @param int[] $excludedPageIds
+     *
+     * @return int[]
+     *
+     * @throws \TYPO3\CMS\Core\Exception\SiteNotFoundException
+     */
     private function getPageIds(string $siteIdentifier = null, array $pid = [], array $excludedPageIds = []): array
     {
         $rootPageIds = [];
@@ -59,6 +70,12 @@ class SelectionFactory
         return \array_unique($pageIds);
     }
 
+    /**
+     * @param string[] $includedTables
+     * @param string[] $excludeTables
+     *
+     * @return string[]
+     */
     private function getTableSelection(array $includedTables = [], array $excludeTables = [], bool $includeRootLevel = true): array
     {
         if (\in_array(self::TABLES_ALL, $includedTables, true)) {
@@ -74,7 +91,12 @@ class SelectionFactory
         return \array_filter($includedTables, fn($tableName) => !\in_array($tableName, $excludeTables, true));
     }
 
-    private function getExcludedRecords(array $excludedRecords = [])
+    /**
+     * @param mixed[] $excludedRecords
+     *
+     * @return mixed[]
+     */
+    private function getExcludedRecords(array $excludedRecords = []): array
     {
         $parsedExcludedRecords = [];
         foreach ($excludedRecords as $excludedRecord) {

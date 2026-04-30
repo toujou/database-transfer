@@ -96,14 +96,23 @@ class TransferService
         });
     }
 
+    /**
+     * @param mixed[] $row
+     * @param mixed[] $tableColumnMeta
+     */
     private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $tableColumnMeta): int
     {
         $row = \array_replace($tableColumnMeta['defaults'], $row);
         $targetDatabase->insert($tableName, $row, $tableColumnMeta['types']);
 
-        return (int)$targetDatabase->lastInsertId($tableName);
+        return (int)$targetDatabase->lastInsertId();
     }
 
+    /**
+     * @param mixed[] $row
+     * @param mixed[] $identifier
+     * @param mixed[] $tableColumnMeta
+     */
     private function updateRow(Connection $targetDatabase, string $tableName, array $row, array $identifier, array $tableColumnMeta): int
     {
         unset($row['uid']);
@@ -112,6 +121,9 @@ class TransferService
         return $targetDatabase->update($tableName, $row, $identifier, $tableColumnMeta['types']);
     }
 
+    /**
+     * @param mixed[] $identifier
+     */
     private function deleteRow(Connection $targetDatabase, string $tableName, array $identifier): int
     {
         return $targetDatabase->delete($tableName, $identifier);

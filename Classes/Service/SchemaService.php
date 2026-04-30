@@ -23,7 +23,7 @@ class SchemaService
         private readonly SchemaParser $schemaParser,
     ) {}
 
-    public function getIndexTableName(string $type, string $transferName)
+    public function getIndexTableName(string $type, string $transferName): string
     {
         return "sys_databasetransfer_{$type}_{$transferName}";
     }
@@ -74,6 +74,9 @@ class SchemaService
         $schemaManager->renameTable($oldTableName, $tableName);
     }
 
+    /**
+     * @param string[] $tableNames
+     */
     public function establishSchemaOfTables(Connection $targetDatabase, array $tableNames): void
     {
         $sqlReader = GeneralUtility::makeInstance(SqlReader::class);
@@ -85,7 +88,14 @@ class SchemaService
         ConnectionMigrator::create(ConnectionPool::DEFAULT_CONNECTION_NAME, $targetDatabase, $tables)->install();
     }
 
-    public function getTableColumnMeta(Connection $connection, array $tableNames)
+    /**
+     * @param string[] $tableNames
+     *
+     * @return mixed[]
+     *
+     * @throws \Doctrine\DBAL\Exception
+     */
+    public function getTableColumnMeta(Connection $connection, array $tableNames): array
     {
         $schemaManager = $connection->createSchemaManager();
         $tableColumnMeta = [];

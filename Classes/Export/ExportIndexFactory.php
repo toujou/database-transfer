@@ -32,6 +32,12 @@ class ExportIndexFactory
         return $exportIndex;
     }
 
+    /**
+     * @param string[] $tableNames
+     * @param int[] $selectedPageIds
+     * @param string[] $staticTableNames
+     * @param array<string, int[]> $excludedRecords
+     */
     private function generateRecordQueriesForSelection(array $tableNames, array $selectedPageIds, array $staticTableNames = [], array $excludedRecords = []): \Generator
     {
         foreach ($tableNames as $tableName) {
@@ -45,8 +51,8 @@ class ExportIndexFactory
                 $queryBuilder->select('uid', '*');
                 $queryBuilder->where(match (true) {
                     $tableName === 'pages' => $expr->in('uid', $selectedPageIds),
-                    $tableName === 'sys_file' => $expr->in('pid', 0),
-                    $tableName === 'sys_file_metadata' => $expr->in('pid', 0),
+                    $tableName === 'sys_file' => $expr->in('pid', [0]),
+                    $tableName === 'sys_file_metadata' => $expr->in('pid', [0]),
                     default => $expr->in('pid', $selectedPageIds),
                 });
             }
@@ -143,6 +149,10 @@ class ExportIndexFactory
         }
     }
 
+    /**
+     * @param mixed[] $columnConfig
+     * @param mixed[] $relation
+     */
     private function addMmRelationsForColumn(ExportIndex $exportIndex, array $columnConfig, array $relation): void
     {
         if (!isset($columnConfig['MM'])) {

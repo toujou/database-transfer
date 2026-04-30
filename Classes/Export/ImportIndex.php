@@ -11,11 +11,12 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 
 class ImportIndex
 {
+    /** @var array<string, array<int, array<string, int|null>>> */
     private array $index = [];
 
     private string $importIndexTableName;
 
-    private ?string $exportIndexTableName = null;
+    private ?string $exportIndexTableName;
 
     public function __construct(
         private readonly Connection $connection,
@@ -31,6 +32,9 @@ class ImportIndex
         return $this->connection;
     }
 
+    /**
+     * @return mixed[]
+     */
     public function compare(ExportIndex $exportIndex): array
     {
         $this->schemaService->emptyTable($this->connection, $this->exportIndexTableName);
@@ -106,6 +110,11 @@ class ImportIndex
         return $this->index[$tableName][$sourceUid]['targetuid'] ?? null;
     }
 
+    /**
+     * @param mixed[] $relation
+     *
+     * @return mixed[]
+     */
     public function translateRelation(array $relation): array
     {
         $original = $translated = $relation;
@@ -118,7 +127,7 @@ class ImportIndex
         if ($translated['recuid'] === null || ($translated['ref_table'] !== '_STRING' && $translated['ref_uid'] === null)) {
             $translated = null;
         } else {
-            $translated['hash'] = $this->calulateReferenceIndexRelationHash($translated);
+            $translated['hash'] = $this->calculateReferenceIndexRelationHash($translated);
         }
 
         return ['original' => $original, 'translated' => $translated];
@@ -173,6 +182,9 @@ class ImportIndex
         ]);
     }
 
+    /**
+     * @return mixed[]
+     */
     public function addToIndex(string $tableName, int $sourceUid, string $type, int $targetUid = null): array
     {
         $this->index[$tableName][$sourceUid] = [
@@ -190,7 +202,10 @@ class ImportIndex
         return $record;
     }
 
-    private function calulateReferenceIndexRelationHash(array $relation): string
+    /**
+     * @param mixed[] $relation
+     */
+    private function calculateReferenceIndexRelationHash(array $relation): string
     {
         // @see \TYPO3\CMS\Core\Database\ReferenceIndex::createEntryDataUsingRecord
         $hashMap = [
@@ -206,6 +221,7 @@ class ImportIndex
             'ref_uid' => $relation['ref_uid'] ?? '',
             'ref_string' => $relation['ref_string'] ?? '',
         ];
+
         // @see \TYPO3\CMS\Core\Database\ReferenceIndex::updateRefIndexTable:221
         return md5(implode('///', $hashMap) . '///1');
     }
