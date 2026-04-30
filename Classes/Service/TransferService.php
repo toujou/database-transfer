@@ -43,7 +43,8 @@ class TransferService
             [$unknown, $existing, $missing] = $importIndex->compare($exportIndex);
             foreach ($unknown as $ident => $row) {
                 // Insert placeholder to get target id
-                $targetUid = $this->insertRow($targetDatabase, $row['tablename'], [], $tableColumnMetas[$row['tablename']]);
+                $this->insertRow($targetDatabase, $row['tablename'], [], $tableColumnMetas[$row['tablename']]);
+                $targetUid = (int) $targetDatabase->lastInsertId();
                 $unknown[$ident] = $importIndex->addToIndex($row['tablename'], $row['sourceuid'], $row['type'], $targetUid);
             }
 
@@ -100,12 +101,10 @@ class TransferService
      * @param mixed[] $row
      * @param mixed[] $tableColumnMeta
      */
-    private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $tableColumnMeta): int
+    private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $tableColumnMeta): void
     {
         $row = \array_replace($tableColumnMeta['defaults'], $row);
         $targetDatabase->insert($tableName, $row, $tableColumnMeta['types']);
-
-        return (int)$targetDatabase->lastInsertId();
     }
 
     /**
