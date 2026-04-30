@@ -114,7 +114,7 @@ readonly class RelationEditor
                 $translatedValue = $this->translateForwardPointingRelationsInColumn($relationsOfFlexpointer, $dataValue, $fieldConfig);
                 $flexFormData = ArrayUtility::setValueByPath($flexFormData, 'data/' . $flexPointer, $translatedValue);
                 $flexFormDataChanged = true;
-            } catch (MissingArrayPathException $arrayPathException) {
+            } catch (MissingArrayPathException) {
             }
         }
 

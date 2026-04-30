@@ -153,17 +153,15 @@ class ImportIndex
                 (string)$expr->eq('exr.targetuid', 'mm.uid_foreign'),
             );
 
-            $query->where($expr->or(...\array_map(function (array $queryParameters) use ($query, $expr) {
-                return $expr->and(
-                    $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
-                    $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
-                    ...\array_map(
-                        fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
-                        \array_keys($queryParameters['matchFields']),
-                        $queryParameters['matchFields'],
-                    ),
-                );
-            }, $mmQueryParameters)));
+            $query->where($expr->or(...\array_map(fn(array $queryParameters) => $expr->and(
+                $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
+                $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
+                ...\array_map(
+                    fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
+                    \array_keys($queryParameters['matchFields']),
+                    $queryParameters['matchFields'],
+                ),
+            ), $mmQueryParameters)));
 
             $result = $query->executeQuery();
             foreach ($result->iterateAssociative() as $row) {
@@ -230,7 +228,7 @@ class ImportIndex
     {
         try {
             $this->schemaService->dropTable($this->connection, $this->exportIndexTableName);
-        } catch (\Exception $th) {
+        } catch (\Exception) {
         }
     }
 }

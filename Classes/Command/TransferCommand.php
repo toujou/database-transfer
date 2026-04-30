@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Toujou\DatabaseTransfer\Database\FastImportConnection;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
 use Toujou\DatabaseTransfer\Service\TransferService;
 use TYPO3\CMS\Core\Core\Bootstrap;
@@ -99,7 +100,7 @@ class TransferCommand extends Command
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = [
             'url' => $input->getArgument('dsn'),
             'driver' => '',
-            'wrapperClass' => \Toujou\DatabaseTransfer\Database\FastImportConnection::class,
+            'wrapperClass' => FastImportConnection::class,
         ];
 
         $this->transferService->transfer($selection, $connectionName);

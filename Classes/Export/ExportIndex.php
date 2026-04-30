@@ -162,26 +162,24 @@ class ExportIndex
                 (string)$expr->eq('exr.sourceuid', 'mm.uid_foreign'),
             );
 
-            $queries = \array_map(function (array $queryParameters) use ($query, $expr) {
-                return (clone $query)
-                    ->addSelectLiteral(
-                        $query->quote($queryParameters['localTable']) . ' AS _local_table',
-                        $query->quote($queryParameters['foreignTable']) . ' AS _foreign_table',
-                    )
-                    ->where(
-                        $expr->and(
-                            $expr->gt('exl.targetuid', 0),
-                            $expr->gt('exr.targetuid', 0),
-                            $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
-                            $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
-                            ...\array_map(
-                                fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
-                                \array_keys($queryParameters['matchFields']),
-                                $queryParameters['matchFields'],
-                            ),
+            $queries = \array_map(fn(array $queryParameters) => (clone $query)
+                ->addSelectLiteral(
+                    $query->quote($queryParameters['localTable']) . ' AS _local_table',
+                    $query->quote($queryParameters['foreignTable']) . ' AS _foreign_table',
+                )
+                ->where(
+                    $expr->and(
+                        $expr->gt('exl.targetuid', 0),
+                        $expr->gt('exr.targetuid', 0),
+                        $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
+                        $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
+                        ...\array_map(
+                            fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
+                            \array_keys($queryParameters['matchFields']),
+                            $queryParameters['matchFields'],
                         ),
-                    );
-            }, $mmQueryParameters);
+                    ),
+                ), $mmQueryParameters);
 
             $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
 
@@ -210,7 +208,7 @@ class ExportIndex
     {
         try {
             $this->schemaService->dropTable($this->connection, $this->indexTableName);
-        } catch (\Exception $th) {
+        } catch (\Exception) {
         }
     }
 }
