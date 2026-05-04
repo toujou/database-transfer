@@ -100,6 +100,12 @@ class TransferCommand extends Command
                 InputOption::VALUE_OPTIONAL,
                 'Identifier of the data source (e.g. "default", "main" ) used to distinguish imports and determine update behavior',
                 'default',
+            )
+            ->addOption(
+                'delta-update',
+                null,
+                InputOption::VALUE_NONE,
+                'Only update records that have changed by comparing their timestamps (if available).',
             );
     }
 
@@ -137,7 +143,7 @@ class TransferCommand extends Command
             'wrapperClass' => FastImportConnection::class,
         ];
 
-        $this->transferService->transfer($selection, $connectionName, $importSource);
+        $this->transferService->transfer($selection, $connectionName, $importSource, (bool)$input->getOption('delta-update'));
 
         if ($symfonyStyle->isVerbose()) {
             $memory = memory_get_usage(true) / 1024 / 1024;

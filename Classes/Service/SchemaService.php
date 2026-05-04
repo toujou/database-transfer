@@ -41,6 +41,7 @@ class SchemaService
             [
                 new Column('tablename', new StringType(), ['length' => $schemaConfig->getMaxIdentifierLength(), 'notnull' => true]),
                 new Column('sourceuid', new IntegerType(), ['notnull' => true]),
+                new Column('updated_at', new IntegerType(), ['notnull' => false]),
                 new Column('type', new StringType(), ['length' => 8, 'notnull' => true]),
                 new Column('targetuid', new IntegerType(), ['default' => null, 'notnull' => false]),
             ],

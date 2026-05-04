@@ -43,7 +43,7 @@ class ExportIndex
 
         return (int)$this->connection->executeStatement(
             \sprintf(
-                'INSERT INTO %s (tablename,sourceuid,type) %s',
+                'INSERT INTO %s (tablename,sourceuid,type,updated_at) %s',
                 $query->quoteIdentifier($this->indexTableName),
                 $query->getSQL(),
             ),
@@ -112,14 +112,19 @@ class ExportIndex
         );
     }
 
-    public function getRecordCount(): int
+    /**
+     * @param mixed[] $indexRecords
+     */
+    public function getRecords(array $indexRecords): \Generator
     {
-        return $this->connection->count('sourceuid', $this->indexTableName, []);
-    }
+        $tableNames = array_unique(array_map(fn(array $record) => $record['tablename'], $indexRecords));
+        foreach ($tableNames as $recordTableName) {
 
-    public function getRecords(): \Generator
-    {
-        foreach ($this->getRecordTableNames() as $recordTableName) {
+            $recordUids = array_unique(array_map(
+                fn(array $record) => $record['sourceuid'],
+                array_filter($indexRecords, fn(array $record) => $record['tablename'] === $recordTableName),
+            ));
+
             $query = $this->connection->createQueryBuilder();
             $expr = $query->expr();
             $query->getRestrictions()->removeAll()->add(new DeletedRestriction());
@@ -130,6 +135,7 @@ class ExportIndex
                     'ex',
                     (string)$expr->and(
                         $expr->eq('ex.sourceuid', 'rt.uid'),
+                        $expr->in('ex.sourceuid', $recordUids),
                         $expr->eq('ex.tablename', $query->quote($recordTableName)),
                         $expr->neq('ex.type', $query->quote('static')),
                     ),

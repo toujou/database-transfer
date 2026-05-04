@@ -24,7 +24,7 @@ class TransferService
         private readonly LoggerInterface $logger,
     ) {}
 
-    public function transfer(Selection $selection, string $transferName, string $importSource): void
+    public function transfer(Selection $selection, string $transferName, string $importSource, bool $isDeltaUpdate = false): void
     {
         $targetDatabaseConnection = $this->connectionPool->getConnectionByName($transferName);
 
@@ -36,16 +36,19 @@ class TransferService
         $tableColumnMetas = $this->schemaService->getTableColumnMeta($targetDatabaseConnection, $allTableNames);
 
         // This transaction leads to roughly 100x performance improvement on sqlite
-        $targetDatabaseConnection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas) {
+        $targetDatabaseConnection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas, $isDeltaUpdate) {
             // TODO refactor existing to "updated" by comparing last modified
             // TODO consider a state machine, as the order of actions is very relevant here
 
-            [$recordsToCreate, $recordsToUpdate, $recordsToDelete] = $importIndex->compare($exportIndex);
+            [$recordsToCreate, $recordsToUpdate, $recordsToDelete] = $importIndex->compare($exportIndex, $isDeltaUpdate);
             foreach ($recordsToCreate as $ident => $row) {
                 // Insert placeholder to get target id
                 $this->insertRow($targetDatabase, $row['tablename'], [], $tableColumnMetas[$row['tablename']]);
                 $targetUid = (int)$targetDatabase->lastInsertId();
-                $recordsToCreate[$ident] = $importIndex->addToIndex($row['tablename'], $row['sourceuid'], $row['type'], $targetUid);
+                $recordsToCreate[$ident] = $importIndex->addToIndex([
+                    ...$row,
+                    'targetuid' => $targetUid,
+                ]);
             }
 
             $exportIndex->updateIndex(\array_merge($recordsToCreate, $recordsToUpdate));
@@ -81,7 +84,7 @@ class TransferService
             }
 
             $exportRelationAnalyzer = new RelationAnalyzer($exportIndex);
-            foreach ($exportIndex->getRecords() as $tableName => $record) {
+            foreach ($exportIndex->getRecords(array_merge($recordsToCreate, $recordsToUpdate)) as $tableName => $record) {
                 $uid = $importIndex->translateUid($tableName, (int)$record['uid']);
                 // Pid is a special relation, that is not tracked via refindex
                 if (isset($record['pid']) && $record['pid'] > 0) {

@@ -35,7 +35,7 @@ class ImportIndex
     /**
      * @return mixed[]
      */
-    public function compare(ExportIndex $exportIndex): array
+    public function compare(ExportIndex $exportIndex, bool $isDeltaUpdate = false): array
     {
         $this->schemaService->emptyTable($this->connection, $this->exportIndexTableName);
         $this->copySourceExportTableData($exportIndex);
@@ -50,17 +50,19 @@ class ImportIndex
             'ex.sourceuid AS ex_sourceuid',
             'ex.type AS ex_type',
             'ex.targetuid AS ex_targetuid',
+            'ex.updated_at AS updated_at',
         );
-
         $queries = [
-            (clone $query) // existing
+            (clone $query) // recordsToCreate
                 ->from($this->importIndexTableName, 'im')
-                ->innerJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid'),
-            (clone $query) // unknown
+                ->innerJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
+                ->where($isDeltaUpdate ? 'ex.updated_at IS NULL OR (ex.updated_at != im.updated_at)' : '1'),
+
+            (clone $query) // recordsToUpdate
                 ->from($this->exportIndexTableName, 'ex')
                 ->leftJoin('ex', $this->importIndexTableName, 'im', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
                 ->where('im.sourceuid IS NULL'),
-            (clone $query) // missing
+            (clone $query) // recordsToDelete
                 ->from($this->importIndexTableName, 'im')
                 ->leftJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
                 ->where('ex.sourceuid IS NULL'),
@@ -79,6 +81,7 @@ class ImportIndex
                     'sourceuid' => (int)$row['im_sourceuid'],
                     'type' => $row['im_type'],
                     'targetuid' => (int)$row['im_targetuid'],
+                    'updated_at' => $row['updated_at'],
                 ];
             } elseif (isset($row['ex_sourceuid'])) {
                 $recordsToCreate[$row['ex_tablename'] . '_' . $row['ex_sourceuid']] = [
@@ -86,6 +89,7 @@ class ImportIndex
                     'sourceuid' => (int)$row['ex_sourceuid'],
                     'type' => $row['ex_type'],
                     'targetuid' => (int)$row['ex_targetuid'],
+                    'updated_at' => $row['updated_at'],
                 ];
             } elseif (isset($row['im_sourceuid'])) {
                 $recordsToCreate[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
@@ -93,6 +97,7 @@ class ImportIndex
                     'sourceuid' => (int)$row['im_sourceuid'],
                     'type' => $row['im_type'],
                     'targetuid' => (int)$row['im_targetuid'],
+                    'updated_at' => $row['updated_at'],
                 ];
             } else {
                 throw new \UnexpectedValueException('Export index to import index comparison returned an unexpected row.', 1741349615);
@@ -183,20 +188,16 @@ class ImportIndex
     }
 
     /**
+     * @param mixed[] $record
      * @return mixed[]
      */
-    public function addToIndex(string $tableName, int $sourceUid, string $type, int $targetUid = null): array
+    public function addToIndex(array $record): array
     {
-        $this->index[$tableName][$sourceUid] = [
-            'type' => $type,
-            'targetuid' => $targetUid,
+        $this->index[$record['tablename']][$record['sourceuid']] = [
+            'type' => $record['type'],
+            'targetuid' => $record['targetuid'],
         ];
-        $record = [
-            'tablename' => $tableName,
-            'sourceuid' => $sourceUid,
-            'type' => $type,
-            'targetuid' => $targetUid,
-        ];
+
         $this->connection->insert($this->importIndexTableName, $record);
 
         return $record;

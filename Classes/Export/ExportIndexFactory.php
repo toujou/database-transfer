@@ -90,7 +90,22 @@ class ExportIndexFactory
                 $selection->getExcludedRecords(),
             ) as $tableName => $query) {
                 $expr = $query->expr();
-                $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
+
+                $schema = $this->tcaSchemaFactory->get($tableName);
+
+                $selectLiterals = [
+                    $query->quote($tableName) . ' AS tablename',
+                    'uid AS sourceuid',
+                    (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type',
+                ];
+
+                if ($schema->hasCapability(TcaSchemaCapability::UpdatedAt)) {
+                    $selectLiterals[] = $schema->getCapability(TcaSchemaCapability::UpdatedAt)->getFieldName() . ' AS updated_at';
+                } else {
+                    $selectLiterals[] = 'NULL AS updated_at';
+                }
+
+                $query->selectLiteral(...$selectLiterals);
 
                 // TODO replace this with RelationAnalyzer as
                 // this doesn't cater for backwards pointing relations like sys_category_record_mm
@@ -132,7 +147,21 @@ class ExportIndexFactory
             [],
             $selection->getExcludedRecords(),
         ) as $tableName => $query) {
-            $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', $query->quote('included') . ' AS type');
+            $schema = $this->tcaSchemaFactory->get($tableName);
+
+            $selectLiterals = [
+                $query->quote($tableName) . ' AS tablename',
+                'uid AS sourceuid',
+                $query->quote('included') . ' AS type',
+            ];
+
+            if ($schema->hasCapability(TcaSchemaCapability::UpdatedAt)) {
+                $selectLiterals[] = $schema->getCapability(TcaSchemaCapability::UpdatedAt)->getFieldName() . ' AS updated_at';
+            } else {
+                $selectLiterals[] = 'NULL AS updated_at';
+            }
+
+            $query->selectLiteral(...$selectLiterals);
             $exportIndex->addRecordsToIndexFromQuery($query);
         }
     }
