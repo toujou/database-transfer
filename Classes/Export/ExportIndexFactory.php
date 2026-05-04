@@ -62,7 +62,7 @@ class ExportIndexFactory
             }
 
             if (isset($GLOBALS['TCA'][$tableName]['ctrl']['languageField'])) {
-                $queryBuilder->andWhere($expr->eq($GLOBALS['TCA'][$tableName]['ctrl']['languageField'], 0));
+                $queryBuilder->andWhere($expr->in($GLOBALS['TCA'][$tableName]['ctrl']['languageField'], [-1, 0]));
             }
 
             yield $tableName => $queryBuilder;
