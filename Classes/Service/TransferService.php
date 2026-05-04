@@ -38,15 +38,15 @@ class TransferService
             // TODO refactor existing to "updated" by comparing last modified
             // TODO consider a state machine, as the order of actions is very relevant here
 
-            [$unknown, $existing, $missing] = $importIndex->compare($exportIndex);
-            foreach ($unknown as $ident => $row) {
+            [$recordsToCreate, $recordsToUpdate, $recordsToDelete] = $importIndex->compare($exportIndex);
+            foreach ($recordsToCreate as $ident => $row) {
                 // Insert placeholder to get target id
                 $this->insertRow($targetDatabase, $row['tablename'], [], $tableColumnMetas[$row['tablename']]);
                 $targetUid = (int)$targetDatabase->lastInsertId();
-                $unknown[$ident] = $importIndex->addToIndex($row['tablename'], $row['sourceuid'], $row['type'], $targetUid);
+                $recordsToCreate[$ident] = $importIndex->addToIndex($row['tablename'], $row['sourceuid'], $row['type'], $targetUid);
             }
 
-            $exportIndex->updateIndex(\array_merge($unknown, $existing));
+            $exportIndex->updateIndex(\array_merge($recordsToCreate, $recordsToUpdate));
 
             foreach ($importIndex->getMMRecords($exportIndex) as $mmTableName => $row) {
                 $this->deleteRow($targetDatabase, $mmTableName, $row);
@@ -61,7 +61,7 @@ class TransferService
             }
 
             // TODO replace by $importIndex->deleteRefindex
-            foreach ($existing as $row) {
+            foreach ($recordsToUpdate as $row) {
                 $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
             }
 
@@ -87,7 +87,7 @@ class TransferService
                 $this->updateRow($targetDatabase, $tableName, $record, ['uid' => $uid], $tableColumnMetas[$tableName]);
             }
 
-            foreach ($missing as $row) {
+            foreach ($recordsToDelete as $row) {
                 $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
                 $this->deleteRow($targetDatabase, $row['tablename'], ['uid' => $row['targetuid']]);
                 $importIndex->removeFromIndex($row['tablename'], $row['targetuid']);

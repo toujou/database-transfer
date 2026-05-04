@@ -70,27 +70,27 @@ class ImportIndex
         $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
         $result = $this->connection->executeQuery($sql);
 
-        $unknown = [];
-        $existing = [];
-        $missing = [];
+        $recordsToCreate = [];
+        $recordsToUpdate = [];
+        $recordsToDelete = [];
 
         foreach ($result->iterateAssociative() as $row) {
             if (isset($row['im_sourceuid'], $row['ex_sourceuid'])) {
-                $existing[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
+                $recordsToUpdate[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
                     'tablename' => $row['im_tablename'],
                     'sourceuid' => (int)$row['im_sourceuid'],
                     'type' => $row['im_type'],
                     'targetuid' => (int)$row['im_targetuid'],
                 ];
             } elseif (isset($row['ex_sourceuid'])) {
-                $unknown[$row['ex_tablename'] . '_' . $row['ex_sourceuid']] = [
+                $recordsToCreate[$row['ex_tablename'] . '_' . $row['ex_sourceuid']] = [
                     'tablename' => $row['ex_tablename'],
                     'sourceuid' => (int)$row['ex_sourceuid'],
                     'type' => $row['ex_type'],
                     'targetuid' => (int)$row['ex_targetuid'],
                 ];
             } elseif (isset($row['im_sourceuid'])) {
-                $unknown[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
+                $recordsToCreate[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
                     'tablename' => $row['im_tablename'],
                     'sourceuid' => (int)$row['im_sourceuid'],
                     'type' => $row['im_type'],
@@ -102,7 +102,11 @@ class ImportIndex
         }
         $result->free();
 
-        return [$unknown, $existing, $missing];
+        foreach ($recordsToUpdate as $existingEntry) {
+            $this->index[$existingEntry['tablename']][$existingEntry['sourceuid']] = $existingEntry;
+        }
+
+        return [$recordsToCreate, $recordsToUpdate, $recordsToDelete];
     }
 
     public function translateUid(string $tableName, int $sourceUid): ?int
