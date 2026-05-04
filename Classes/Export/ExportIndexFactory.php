@@ -7,6 +7,9 @@ namespace Toujou\DatabaseTransfer\Export;
 use Toujou\DatabaseTransfer\Service\SchemaService;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Schema\Capability\LanguageAwareSchemaCapability;
+use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
 /**
  * This class encapsulates all the TCA specific logic
@@ -18,6 +21,7 @@ class ExportIndexFactory
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly SchemaService $schemaService,
+        private readonly TcaSchemaFactory $tcaSchemaFactory,
     ) {}
 
     public function createExportIndex(Selection $selection, string $importSource): ExportIndex
@@ -41,6 +45,7 @@ class ExportIndexFactory
     private function generateRecordQueriesForSelection(array $tableNames, array $selectedPageIds, array $staticTableNames = [], array $excludedRecords = []): \Generator
     {
         foreach ($tableNames as $tableName) {
+            $schema = $this->tcaSchemaFactory->get($tableName);
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable($tableName);
             $expr = $queryBuilder->expr();
 
@@ -60,9 +65,11 @@ class ExportIndexFactory
             if (!empty($excludedRecords[$tableName])) {
                 $queryBuilder->andWhere($expr->notIn('uid', $excludedRecords[$tableName]));
             }
-
-            if (isset($GLOBALS['TCA'][$tableName]['ctrl']['languageField'])) {
-                $queryBuilder->andWhere($expr->in($GLOBALS['TCA'][$tableName]['ctrl']['languageField'], [-1, 0]));
+            if ($schema->isLanguageAware()) {
+                /** @var LanguageAwareSchemaCapability $languageCapability */
+                $languageCapability = $schema->getCapability(TcaSchemaCapability::Language);
+                $languageField = $languageCapability->getLanguageField()->getName();
+                $queryBuilder->andWhere($expr->in($languageField, [-1, 0]));
             }
 
             yield $tableName => $queryBuilder;
