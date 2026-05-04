@@ -38,9 +38,7 @@ class ImportIndex
     public function compare(ExportIndex $exportIndex): array
     {
         $this->schemaService->emptyTable($this->connection, $this->exportIndexTableName);
-        foreach ($exportIndex->getIndex() as $row) {
-            $this->connection->insert($this->exportIndexTableName, $row);
-        }
+        $this->copySourceExportTableData($exportIndex);
 
         $query = $this->connection->createQueryBuilder();
         $query->select(
@@ -226,6 +224,22 @@ class ImportIndex
 
         // @see \TYPO3\CMS\Core\Database\ReferenceIndex::updateRefIndexTable:221
         return md5(implode('///', $hashMap) . '///1');
+    }
+
+    private function copySourceExportTableData(ExportIndex $exportIndex, int $chunkSize = 500): void
+    {
+        $buffer = [];
+
+        foreach ($exportIndex->getIndex() as $row) {
+            $buffer[] = $row;
+            if (count($buffer) === $chunkSize) {
+                $this->connection->bulkInsert($this->exportIndexTableName, $buffer, array_keys($buffer[0]));
+                $buffer = [];
+            }
+        }
+        if ($buffer) {
+            $this->connection->bulkInsert($this->exportIndexTableName, $buffer, array_keys($buffer[0]));
+        }
     }
 
     public function __destruct()
