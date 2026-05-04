@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Toujou\DatabaseTransfer\Database\FastImportConnection;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
 use Toujou\DatabaseTransfer\Service\TransferService;
@@ -36,6 +37,12 @@ class TransferCommand extends Command
                 'dsn',
                 InputArgument::REQUIRED,
                 'The target database connection string',
+            )
+            ->addOption(
+                'all',
+                null,
+                InputOption::VALUE_NONE,
+                'Export all pages',
             )
             ->addOption(
                 'site',
@@ -93,7 +100,24 @@ class TransferCommand extends Command
     {
         Bootstrap::initializeBackendAuthentication();
 
+        $symfonyStyle = new SymfonyStyle($input, $output);
+
         $options = $input->getOptions();
+
+        $all = $input->getOption('all');
+        $site = $input->getOption('site');
+        $pid  = $input->getOption('pid');
+
+        if ($all && ($site || $pid)) {
+            $symfonyStyle->error('You cannot combine --all with --site or --pid');
+            return Command::FAILURE;
+        }
+
+        if (!$all && !$site && empty($pid)) {
+            $symfonyStyle->error('You must use --all, --site, or --pid');
+            return Command::FAILURE;
+        }
+
         $selection = $this->selectionFactory->buildFromCommandOptions($options);
 
         $connectionName = uniqid('', false);

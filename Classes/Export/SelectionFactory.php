@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Export;
 
 use TYPO3\CMS\Core\Domain\Repository\PageRepository;
+use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Site\SiteFinder;
 
 class SelectionFactory
@@ -24,7 +25,18 @@ class SelectionFactory
     public function buildFromCommandOptions(array $options): Selection
     {
         $excludedRecords = $this->getExcludedRecords($options['exclude-record'] ?? []);
-        $pageIds = $this->getPageIds($options['site'] ?? null, $options['pid'] ?? [], $excludedRecords['pages'] ?? []);
+
+        $site = $options['site'] ?? null;
+        $pages = $options['pid'] ?? [];
+
+        if ($options['all'] ?? null) {
+            $pages = [
+                0,
+                ...array_map(fn(Site $site) => $site->getRootPageId(), $this->siteFinder->getAllSites()),
+            ];
+        }
+
+        $pageIds = $this->getPageIds($site, $pages ?? [], $excludedRecords['pages'] ?? []);
         $includesRootLevel = \in_array(0, $pageIds);
         $selectedTables = $this->getTableSelection($options['include-table'] ?? [], $options['exclude-table'] ?? [], $includesRootLevel);
         $relatedTables = $this->getTableSelection($options['include-related'] ?? [], \array_merge($options['exclude-table'] ?? [], $options['include-static'] ?? []));

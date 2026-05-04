@@ -44,7 +44,7 @@ class TransferService
             foreach ($unknown as $ident => $row) {
                 // Insert placeholder to get target id
                 $this->insertRow($targetDatabase, $row['tablename'], [], $tableColumnMetas[$row['tablename']]);
-                $targetUid = (int) $targetDatabase->lastInsertId();
+                $targetUid = (int)$targetDatabase->lastInsertId();
                 $unknown[$ident] = $importIndex->addToIndex($row['tablename'], $row['sourceuid'], $row['type'], $targetUid);
             }
 
