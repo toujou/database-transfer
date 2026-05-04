@@ -57,14 +57,14 @@ class ImportIndex
         $queries = [
             (clone $query) // existing
                 ->from($this->importIndexTableName, 'im')
-                ->innerJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.targetuid'),
+                ->innerJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid'),
             (clone $query) // unknown
                 ->from($this->exportIndexTableName, 'ex')
-                ->leftJoin('ex', $this->importIndexTableName, 'im', 'ex.tablename = im.tablename AND ex.sourceuid = im.targetuid')
+                ->leftJoin('ex', $this->importIndexTableName, 'im', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
                 ->where('im.sourceuid IS NULL'),
             (clone $query) // missing
                 ->from($this->importIndexTableName, 'im')
-                ->leftJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.targetuid')
+                ->leftJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
                 ->where('ex.sourceuid IS NULL'),
         ];
         $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
