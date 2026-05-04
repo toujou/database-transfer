@@ -53,10 +53,10 @@ final class PagesAndCategoriesTest extends AbstractTransferTestCase
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
         $transferService = $this->get(TransferService::class);
-        $transferService->transfer($selection, $targetConnectionName);
+        $transferService->transfer($selection, $targetConnectionName, 'default');
 
         $targetConnection = $this->getConnectionPool()->getConnectionByName($targetConnectionName);
-        $this->renameImportIndexToWellKnownTableName($targetConnection, $targetConnectionName);
+        $this->renameImportIndexToWellKnownTableName($targetConnection);
 
         $databaseContext = new DatabaseContext(
             $targetConnection,

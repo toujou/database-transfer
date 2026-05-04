@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Service;
 
+use Psr\Log\LoggerInterface;
 use Toujou\DatabaseTransfer\Database\RelationAnalyzer;
 use Toujou\DatabaseTransfer\Database\RelationEditor;
 use Toujou\DatabaseTransfer\Export\ExportIndexFactory;
@@ -20,6 +21,7 @@ class TransferService
         private readonly ImportIndexFactory $importIndexFactory,
         private readonly SchemaService $schemaService,
         private readonly RelationEditor $relationEditor,
+        private readonly LoggerInterface $logger,
     ) {}
 
     public function transfer(Selection $selection, string $transferName, string $importSource): void
@@ -57,7 +59,20 @@ class TransferService
                 unset($row['_local_table'], $row['_foreign_table']);
                 $row['uid_local'] = $importIndex->translateUid($localTable, $row['uid_local']);
                 $row['uid_foreign'] = $importIndex->translateUid($foreignTable, $row['uid_foreign']);
-                $this->insertRow($targetDatabase, $mmTableName, $row, $tableColumnMetas[$mmTableName]);
+                if ($row['uid_local'] && $row['uid_foreign']) {
+                    $this->insertRow($targetDatabase, $mmTableName, $row, $tableColumnMetas[$mmTableName]);
+                } else {
+                    $this->logger->debug(
+                        '[DatabaseTransfer] Skipping MM insert: missing translated UID',
+                        [
+                            'mmTable' => $mmTableName,
+                            'localTable' => $localTable,
+                            'foreignTable' => $foreignTable,
+                            'originalUidLocal' => $row['uid_local'],
+                            'originalUidForeign' => $row['uid_foreign'],
+                        ],
+                    );
+                }
             }
 
             // TODO replace by $importIndex->deleteRefindex

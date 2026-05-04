@@ -52,26 +52,6 @@ class PagesAndTtContentWithImagesTest extends AbstractTransferTestCase
         });
     }
 
-    #[Test]
-    public function exportPagesAndRelatedTtContentWithImagesButNotIncluded(): void
-    {
-        self::markTestIncomplete(
-            'Files export has not been implemented yet.',
-        );
-
-        $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_file.csv');
-        $this->get(ReferenceIndex::class)->updateIndex(false);
-
-        // TODO: implement setSaveFilesOutsideExportFile
-        $databaseContext = $this->runTransfer();
-
-        $databaseContext->runWithinConnection(function () {
-            $this->assertCSVDataSet(__DIR__ . '/../Fixtures/DatabaseExports/pages-and-ttcontent-with-image-but-not-included.csv');
-        });
-
-        //self::assertFileEquals(__DIR__ . '/../Fixtures/Folders/fileadmin/user_upload/typo3_image2.jpg', $temporaryFilesDirectory . '/' . 'da9acdf1e105784a57bbffec9520969578287797');
-    }
-
     private function runTransfer(): DatabaseContext
     {
         $targetConnectionName = $this->createSqliteConnection('export');
@@ -86,10 +66,10 @@ class PagesAndTtContentWithImagesTest extends AbstractTransferTestCase
         $selection = $selectionFactory->buildFromCommandOptions($options);
 
         $transferService = $this->get(TransferService::class);
-        $transferService->transfer($selection, $targetConnectionName);
+        $transferService->transfer($selection, $targetConnectionName, 'default');
 
         $targetConnection = $this->getConnectionPool()->getConnectionByName($targetConnectionName);
-        $this->renameImportIndexToWellKnownTableName($targetConnection, $targetConnectionName);
+        $this->renameImportIndexToWellKnownTableName($targetConnection);
 
         $databaseContext = new DatabaseContext(
             $targetConnection,
