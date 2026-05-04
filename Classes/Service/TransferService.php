@@ -125,19 +125,19 @@ class TransferService
      * @param mixed[] $identifier
      * @param mixed[] $tableColumnMeta
      */
-    private function updateRow(Connection $targetDatabase, string $tableName, array $row, array $identifier, array $tableColumnMeta): int
+    private function updateRow(Connection $targetDatabase, string $tableName, array $row, array $identifier, array $tableColumnMeta): void
     {
         unset($row['uid']);
         $row = \array_intersect_key($row, $tableColumnMeta['types']);
 
-        return $targetDatabase->update($tableName, $row, $identifier, $tableColumnMeta['types']);
+        $targetDatabase->update($tableName, $row, $identifier, $tableColumnMeta['types']);
     }
 
     /**
      * @param mixed[] $identifier
      */
-    private function deleteRow(Connection $targetDatabase, string $tableName, array $identifier): int
+    private function deleteRow(Connection $targetDatabase, string $tableName, array $identifier): void
     {
-        return $targetDatabase->delete($tableName, $identifier);
+        $targetDatabase->delete($tableName, $identifier);
     }
 }
