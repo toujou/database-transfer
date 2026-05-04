@@ -93,6 +93,13 @@ class TransferCommand extends Command
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
                 'Include record relations to this table, excluding the related record. Examples: "ALL", "be_users", etc.',
+            )
+            ->addOption(
+                'import-source',
+                null,
+                InputOption::VALUE_OPTIONAL,
+                'Identifier of the data source (e.g. "default", "main" ) used to distinguish imports and determine update behavior',
+                'default',
             );
     }
 
@@ -107,6 +114,7 @@ class TransferCommand extends Command
         $all = $input->getOption('all');
         $site = $input->getOption('site');
         $pid  = $input->getOption('pid');
+        $importSource = $input->getOption('import-source');
 
         if ($all && ($site || $pid)) {
             $symfonyStyle->error('You cannot combine --all with --site or --pid');
@@ -127,7 +135,7 @@ class TransferCommand extends Command
             'wrapperClass' => FastImportConnection::class,
         ];
 
-        $this->transferService->transfer($selection, $connectionName);
+        $this->transferService->transfer($selection, $connectionName, $importSource);
 
         return Command::SUCCESS;
     }

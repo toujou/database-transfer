@@ -2,7 +2,7 @@
 
 Enables you to transfer parts of the TYPO3 database to another database. This database can then be used either on its own as new TYPO3 instance or used to import data to another TYPO3 instance. Especially SQLite is useful as a transport vehicle for this.
 
-> [!WARNING]  
+> [!WARNING]
 > This package is still in early development und mostly unfinished. It's definitely not ready for production.
 
 ## Use Cases (not exhaustive, to be continued)
@@ -21,6 +21,17 @@ Require and install the plugin
     $ composer require toujou/database-transfer
     $ vendor/bin/typo3cms extension:install toujou_database_transfer
 
+## Usage (Console Command)
+
+Pre Export:
+```shell
+vendor/bin/typo3 referenceindex:update
+```
+
+
+```shell
+vendor/bin/typo3 database:transfer
+```
 ## Development
 
 Install php dependencies using composer:
@@ -34,14 +45,3 @@ Install php dependencies using composer:
 #### [PHPUnit](https://phpunit.de) Functional tests
 
     $ etc/scripts/runTests.sh -s functional
-
-
-#### [Easy-Coding-Standard](https://github.com/Symplify/EasyCodingStandard)
-
-Check coding standard violations
-
-    $ etc/scripts/checkCodingStandards.sh
-
-Fix coding standard violations automatically
-
-    $ etc/scripts/checkCodingStandards.sh --fix

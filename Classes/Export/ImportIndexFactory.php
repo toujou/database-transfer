@@ -5,20 +5,16 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Export;
 
 use Toujou\DatabaseTransfer\Service\SchemaService;
-use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Connection;
 
-class ImportIndexFactory
+readonly class ImportIndexFactory
 {
     public function __construct(
-        private readonly ConnectionPool $connectionPool,
-        private readonly SchemaService $schemaService,
+        private SchemaService $schemaService,
     ) {}
 
-    public function createImportIndex(Selection $selection, string $transferName): ImportIndex
+    public function createImportIndex(Connection $connection, string $importSource): ImportIndex
     {
-        $connection = $this->connectionPool->getConnectionByName($transferName);
-        $importIndex = new ImportIndex($connection, $this->schemaService, $transferName);
-
-        return $importIndex;
+        return new ImportIndex($connection, $this->schemaService, $importSource);
     }
 }

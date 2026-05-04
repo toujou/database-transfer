@@ -20,10 +20,10 @@ class ExportIndexFactory
         private readonly SchemaService $schemaService,
     ) {}
 
-    public function createExportIndex(Selection $selection, string $transferName): ExportIndex
+    public function createExportIndex(Selection $selection, string $importSource): ExportIndex
     {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLENAME_REFERENCE_INDEX);
-        $exportIndex = new ExportIndex($connection, $this->schemaService, $transferName);
+        $exportIndex = new ExportIndex($connection, $this->schemaService, $importSource);
 
         $this->addDirectlySelectedRecords($selection, $exportIndex);
         $this->addRelatedRecords($selection, $exportIndex);

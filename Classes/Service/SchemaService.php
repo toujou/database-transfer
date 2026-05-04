@@ -23,16 +23,16 @@ class SchemaService
         private readonly SchemaParser $schemaParser,
     ) {}
 
-    public function getIndexTableName(string $type, string $transferName): string
+    public function getIndexTableName(string $type, string $importSource): string
     {
-        return "sys_databasetransfer_{$type}_{$transferName}";
+        return "sys_databasetransfer_{$type}_{$importSource}";
     }
 
-    public function establishIndexTable(Connection $targetDatabase, string $type, string $transferName): string
+    public function establishIndexTable(Connection $targetDatabase, string $type, string $importSource): string
     {
         $schemaManager = $targetDatabase->createSchemaManager();
         $schemaConfig = $schemaManager->createSchemaConfig();
-        $transferIndexTableName = $this->getIndexTableName($type, $transferName);
+        $transferIndexTableName = $this->getIndexTableName($type, $importSource);
         if ($schemaManager->tablesExist([$transferIndexTableName])) {
             return $transferIndexTableName;
         }

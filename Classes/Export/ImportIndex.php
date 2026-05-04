@@ -21,10 +21,10 @@ class ImportIndex
     public function __construct(
         private readonly Connection $connection,
         private readonly SchemaService $schemaService,
-        string $transferName,
+        string $importSource,
     ) {
-        $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $transferName);
-        $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $transferName);
+        $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $importSource);
+        $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $importSource);
     }
 
     public function getConnection(): Connection

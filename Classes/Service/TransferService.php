@@ -22,21 +22,19 @@ class TransferService
         private readonly RelationEditor $relationEditor,
     ) {}
 
-    public function transfer(Selection $selection, string $transferName): void
+    public function transfer(Selection $selection, string $transferName, string $importSource): void
     {
-        $targetDatabase = $this->connectionPool->getConnectionByName($transferName);
+        $targetDatabaseConnection = $this->connectionPool->getConnectionByName($transferName);
 
-        // Transfer name for export/import index tables?
-        // Save $selection in import index and reload on subsequent transfers.
-        $importIndex = $this->importIndexFactory->createImportIndex($selection, $transferName);
-        $exportIndex = $this->exportIndexFactory->createExportIndex($selection, $transferName);
+        $importIndex = $this->importIndexFactory->createImportIndex($targetDatabaseConnection, $importSource);
+        $exportIndex = $this->exportIndexFactory->createExportIndex($selection, $importSource);
 
         $allTableNames = $exportIndex->getAllTableNames();
-        $this->schemaService->establishSchemaOfTables($targetDatabase, $allTableNames);
-        $tableColumnMetas = $this->schemaService->getTableColumnMeta($targetDatabase, $allTableNames);
+        $this->schemaService->establishSchemaOfTables($targetDatabaseConnection, $allTableNames);
+        $tableColumnMetas = $this->schemaService->getTableColumnMeta($targetDatabaseConnection, $allTableNames);
 
         // This transaction leads to roughly 100x performance improvement on sqlite
-        $targetDatabase->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas) {
+        $targetDatabaseConnection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas) {
             // TODO refactor existing to "updated" by comparing last modified
             // TODO consider a state machine, as the order of actions is very relevant here
 
