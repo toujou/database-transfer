@@ -107,6 +107,8 @@ class TransferCommand extends Command
     {
         Bootstrap::initializeBackendAuthentication();
 
+        $startTime = microtime(true);
+
         $symfonyStyle = new SymfonyStyle($input, $output);
 
         $options = $input->getOptions();
@@ -136,6 +138,19 @@ class TransferCommand extends Command
         ];
 
         $this->transferService->transfer($selection, $connectionName, $importSource);
+
+        if ($symfonyStyle->isVerbose()) {
+            $memory = memory_get_usage(true) / 1024 / 1024;
+            $peak = memory_get_peak_usage(true) / 1024 / 1024;
+            $elapsed = microtime(true) - $startTime;
+
+            $symfonyStyle->writeln(sprintf(
+                '<info>Profiling</info> | Current: %.2f MB | Peak: %.2f MB | %.3fs (total)',
+                $memory,
+                $peak,
+                $elapsed,
+            ));
+        }
 
         return Command::SUCCESS;
     }
