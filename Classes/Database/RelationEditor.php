@@ -6,6 +6,7 @@ namespace Toujou\DatabaseTransfer\Database;
 
 use TYPO3\CMS\Core\Configuration\FlexForm\FlexFormTools;
 use TYPO3\CMS\Core\DataHandling\SoftReference\SoftReferenceParserFactory;
+use TYPO3\CMS\Core\LinkHandling\LinkService;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\Exception\MissingArrayPathException;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -14,6 +15,7 @@ readonly class RelationEditor
 {
     public function __construct(
         private SoftReferenceParserFactory $softReferenceParserFactory,
+        private LinkService $linkService,
     ) {}
 
     /**
@@ -235,20 +237,58 @@ readonly class RelationEditor
         // As the reference index stores the key of the softreference parser and the id, we need to map this to the
         // softreference tokenId.
         foreach ($relations as $relation) {
-            $softrefElement = $matchedElements[$relation['original']['softref_key']][$relation['original']['softref_id']] ?? null;
-            if (!isset($softrefElement['subst']['tokenID'])) {
+            $originalRelation = $relation['original'] ?? null;
+            $translatedRelation = $relation['translated'] ?? null;
+            $softrefKey = $originalRelation['softref_key'];
+            $softrefId = $originalRelation['softref_id'];
+            $softrefElement = $matchedElements[$softrefKey][$softrefId] ?? null;
+            $tokenId = $softrefElement['subst']['tokenID'] ?? null;
+
+            if ($tokenId === null) {
                 continue;
             }
-            $tokenId = $softrefElement['subst']['tokenID'];
-            if ($relation['translated'] === null) {
+
+            if (($translatedRelation['ref_uid'] ?? null) === null) {
                 $softrefValues['{softref:' . $tokenId . '}'] = '';
-            } elseif ($softrefElement['subst']['type'] === 'db' &&
-                \str_contains($softrefElement['matchString'], ':') &&
-                $relation['translated']['ref_uid'] !== null) {
-                [$tokenKey] = explode(':', $softrefElement['matchString']);
-                $softrefValues['{softref:' . $tokenId . '}'] = $tokenKey . ':' . $relation['translated']['ref_uid'];
+
+                continue;
             }
-            // TODO figure out if its a problem if none of the conditions apply
+
+            switch ($softrefElement['subst']['type'] ?? null) {
+                case 'file':
+                    // @todo add handling for files
+
+                case 'db':
+                    $insertValue = $translatedRelation['ref_uid'];
+                    $tokenValue = (string)$softrefElement['subst']['tokenValue'];
+                    if (str_contains($tokenValue, ':')) {
+                        [$tokenKey] = explode(':', $tokenValue);
+                        $insertValue = $tokenKey . ':' . $insertValue;
+                    }
+                    $matchString = $softrefElement['matchString'] ?? '';
+
+                    // Handling for typo3_links
+                    if (str_contains($matchString, 't3://')) {
+                        $link = $matchString;
+                        if (preg_match('/href="([^"]+)"/', $link, $linkMatches)) {
+                            $link = $linkMatches[1];
+                        }
+
+                        $parts = $this->linkService->resolve($link);
+
+                        if ($translatedRelation['ref_table'] === 'pages') {
+                            $parts['pageuid'] = $translatedRelation['ref_uid'];
+                        }
+                        // content element anchors will be replaced via own softref
+                        if ((int)($parts['fragment'] ?? 0) > 0) {
+                            unset($parts['fragment']);
+                        }
+
+                        $insertValue = $this->linkService->asString($parts);
+                    }
+                    $softrefValues['{softref:' . $tokenId . '}'] = $insertValue;
+            }
+
         }
 
         // TODO relation softref_id has to be recalculated as the hash includes the uid of the record

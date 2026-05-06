@@ -9,9 +9,9 @@ final readonly class RecordAction
     private function __construct(
         public string $tableName,
         public string $type,
-        public ?int   $sourceUid,
-        public ?int   $targetUid,
-        public ?int   $updatedAt,
+        public ?int $sourceUid,
+        public ?int $targetUid,
+        public ?int $updatedAt,
     ) {}
 
     public function isCreateAction(): bool
