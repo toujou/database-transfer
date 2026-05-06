@@ -15,6 +15,7 @@ use Toujou\DatabaseTransfer\Database\FastImportConnection;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
 use Toujou\DatabaseTransfer\Service\TransferService;
 use TYPO3\CMS\Core\Core\Bootstrap;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 #[AsCommand(
     name: 'database:transfer',
@@ -25,6 +26,7 @@ class TransferCommand extends Command
     public function __construct(
         private SelectionFactory $selectionFactory,
         private TransferService $transferService,
+        private ConnectionPool $connectionPool,
     ) {
         parent::__construct();
     }
@@ -68,6 +70,11 @@ class TransferCommand extends Command
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
                 'Exclude all records of this table. Examples: "tt_content", "sys_file_reference", etc.',
+                [
+                    'tx_migrations_domain_model_migrationstatus',
+                    'tx_yoastseo_prominent_word',
+                    'tx_sentmail_mail',
+                ],
             )
             ->addOption(
                 'include-record',
@@ -98,8 +105,7 @@ class TransferCommand extends Command
                 'import-source',
                 null,
                 InputOption::VALUE_OPTIONAL,
-                'Identifier of the data source (e.g. "default", "main" ) used to distinguish imports and determine update behavior',
-                'default',
+                'Identifier of the data source (e.g. "default", "main" ) used to distinguish imports and determine update behavior. Default: Database name (of "Default" connection)',
             )
             ->addOption(
                 'delta-update',
@@ -122,7 +128,7 @@ class TransferCommand extends Command
         $all = $input->getOption('all');
         $site = $input->getOption('site');
         $pid  = $input->getOption('pid');
-        $importSource = $input->getOption('import-source');
+        $importSourceName = $input->getOption('import-source') ?? $this->connectionPool->getConnectionByName('Default')->getDatabase();
 
         if ($all && ($site || $pid)) {
             $symfonyStyle->error('You cannot combine --all with --site or --pid');
@@ -143,7 +149,7 @@ class TransferCommand extends Command
             'wrapperClass' => FastImportConnection::class,
         ];
 
-        $this->transferService->transfer($selection, $connectionName, $importSource, (bool)$input->getOption('delta-update'));
+        $this->transferService->transfer($selection, $connectionName, $importSourceName, (bool)$input->getOption('delta-update'));
 
         if ($symfonyStyle->isVerbose()) {
             $memory = memory_get_usage(true) / 1024 / 1024;

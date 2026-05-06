@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Export;
 
+use Toujou\DatabaseTransfer\DTO\RecordAction;
+use Toujou\DatabaseTransfer\DTO\RecordChangeSet;
 use Toujou\DatabaseTransfer\Service\SchemaService;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -48,22 +50,6 @@ class ExportIndex
                 $query->getSQL(),
             ),
         );
-    }
-
-    /**
-     * @param mixed[] $indexRows
-     */
-    public function updateIndex(array $indexRows): void
-    {
-        $this->connection->transactional(function () use ($indexRows) {
-            foreach ($indexRows as $row) {
-                $this->connection->update(
-                    $this->indexTableName,
-                    ['targetuid' => (int)$row['targetuid']],
-                    ['tablename' => $row['tablename'], 'sourceuid' => $row['sourceuid']],
-                );
-            }
-        });
     }
 
     /**
@@ -112,17 +98,15 @@ class ExportIndex
         );
     }
 
-    /**
-     * @param mixed[] $indexRecords
-     */
-    public function getRecords(array $indexRecords): \Generator
+    public function getSourceTcaRecords(RecordChangeSet $result): \Generator
     {
-        $tableNames = array_unique(array_map(fn(array $record) => $record['tablename'], $indexRecords));
-        foreach ($tableNames as $recordTableName) {
+        $recordsToPersist = $result->getRecordsToPersist();
 
+        $tableNames = array_unique(array_map(static fn(RecordAction $record) => $record->tableName, $recordsToPersist));
+        foreach ($tableNames as $recordTableName) {
             $recordUids = array_unique(array_map(
-                fn(array $record) => $record['sourceuid'],
-                array_filter($indexRecords, fn(array $record) => $record['tablename'] === $recordTableName),
+                static fn(RecordAction $record) => $record->sourceUid,
+                array_filter($recordsToPersist, static fn(RecordAction $record) => $record->tableName === $recordTableName),
             ));
 
             $query = $this->connection->createQueryBuilder();
@@ -175,8 +159,6 @@ class ExportIndex
                 )
                 ->where(
                     $expr->and(
-                        $expr->gt('exl.targetuid', 0),
-                        $expr->gt('exr.targetuid', 0),
                         $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
                         $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
                         ...\array_map(

@@ -24,10 +24,10 @@ class ExportIndexFactory
         private readonly TcaSchemaFactory $tcaSchemaFactory,
     ) {}
 
-    public function createExportIndex(Selection $selection, string $importSource): ExportIndex
+    public function createExportIndex(Selection $selection, string $importSourceName): ExportIndex
     {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLENAME_REFERENCE_INDEX);
-        $exportIndex = new ExportIndex($connection, $this->schemaService, $importSource);
+        $exportIndex = new ExportIndex($connection, $this->schemaService, $importSourceName);
 
         $this->addDirectlySelectedRecords($selection, $exportIndex);
         $this->addRelatedRecords($selection, $exportIndex);

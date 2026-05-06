@@ -24,12 +24,12 @@ class TransferService
         private readonly LoggerInterface $logger,
     ) {}
 
-    public function transfer(Selection $selection, string $transferName, string $importSource, bool $isDeltaUpdate = false): void
+    public function transfer(Selection $selection, string $transferName, string $importSourceName, bool $isDeltaUpdate = false): void
     {
         $targetDatabaseConnection = $this->connectionPool->getConnectionByName($transferName);
 
-        $importIndex = $this->importIndexFactory->createImportIndex($targetDatabaseConnection, $importSource);
-        $exportIndex = $this->exportIndexFactory->createExportIndex($selection, $importSource);
+        $importIndex = $this->importIndexFactory->createImportIndex($targetDatabaseConnection, $importSourceName);
+        $exportIndex = $this->exportIndexFactory->createExportIndex($selection, $importSourceName);
 
         $allTableNames = $exportIndex->getAllTableNames();
         $this->schemaService->establishSchemaOfTables($targetDatabaseConnection, $allTableNames);
@@ -37,22 +37,15 @@ class TransferService
 
         // This transaction leads to roughly 100x performance improvement on sqlite
         $targetDatabaseConnection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas, $isDeltaUpdate) {
-            // TODO refactor existing to "updated" by comparing last modified
-            // TODO consider a state machine, as the order of actions is very relevant here
-
-            [$recordsToCreate, $recordsToUpdate, $recordsToDelete] = $importIndex->compare($exportIndex, $isDeltaUpdate);
-            foreach ($recordsToCreate as $ident => $row) {
+            $comparisonResult = $importIndex->compare($exportIndex, $isDeltaUpdate);
+            foreach ($comparisonResult->getRecordsToCreate() as $item) {
                 // Insert placeholder to get target id
-                $this->insertRow($targetDatabase, $row['tablename'], [], $tableColumnMetas[$row['tablename']]);
+                $this->insertRow($targetDatabase, $item->tableName, [], $tableColumnMetas[$item->tableName]);
                 $targetUid = (int)$targetDatabase->lastInsertId();
-                $recordsToCreate[$ident] = $importIndex->addToIndex([
-                    ...$row,
-                    'targetuid' => $targetUid,
-                ]);
+                $importIndex->addToIndex($item, $targetUid);
             }
 
-            $exportIndex->updateIndex(\array_merge($recordsToCreate, $recordsToUpdate));
-
+            // @todo remove this snippet -> leading to missing refs on partial updates
             foreach ($importIndex->getMMRecords($exportIndex) as $mmTableName => $row) {
                 $this->deleteRow($targetDatabase, $mmTableName, $row);
             }
@@ -79,12 +72,15 @@ class TransferService
             }
 
             // TODO replace by $importIndex->deleteRefindex
-            foreach ($recordsToUpdate as $row) {
-                $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
+            foreach ($comparisonResult->getRecordsToUpdate() as $row) {
+                if ($row->updatedAt) {
+                    $importIndex->updateUpdatedAtTimestamp($row);
+                }
+                $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row->tableName, 'recuid' => $row->targetUid]);
             }
 
             $exportRelationAnalyzer = new RelationAnalyzer($exportIndex);
-            foreach ($exportIndex->getRecords(array_merge($recordsToCreate, $recordsToUpdate)) as $tableName => $record) {
+            foreach ($exportIndex->getSourceTcaRecords($comparisonResult) as $tableName => $record) {
                 $uid = $importIndex->translateUid($tableName, (int)$record['uid']);
                 // Pid is a special relation, that is not tracked via refindex
                 if (isset($record['pid']) && $record['pid'] > 0) {
@@ -105,10 +101,10 @@ class TransferService
                 $this->updateRow($targetDatabase, $tableName, $record, ['uid' => $uid], $tableColumnMetas[$tableName]);
             }
 
-            foreach ($recordsToDelete as $row) {
-                $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row['tablename'], 'recuid' => $row['targetuid']]);
-                $this->deleteRow($targetDatabase, $row['tablename'], ['uid' => $row['targetuid']]);
-                $importIndex->removeFromIndex($row['tablename'], $row['targetuid']);
+            foreach ($comparisonResult->getRecordsToDelete() as $row) {
+                $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row->tableName, 'recuid' => $row->targetUid]);
+                $this->deleteRow($targetDatabase, $row->tableName, ['uid' => $row->targetUid]);
+                $importIndex->removeFromIndex($row->tableName, (int)$row->targetUid);
             }
         });
     }
@@ -120,7 +116,11 @@ class TransferService
     private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $tableColumnMeta): void
     {
         $row = \array_replace($tableColumnMeta['defaults'], $row);
-        $targetDatabase->insert($tableName, $row, $tableColumnMeta['types']);
+        try {
+            $targetDatabase->insert($tableName, $row, $tableColumnMeta['types']);
+        } catch (\Exception $e) {
+            $this->logger->debug($e->getMessage(), $row);
+        }
     }
 
     /**

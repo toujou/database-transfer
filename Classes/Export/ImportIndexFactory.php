@@ -13,8 +13,8 @@ readonly class ImportIndexFactory
         private SchemaService $schemaService,
     ) {}
 
-    public function createImportIndex(Connection $connection, string $importSource): ImportIndex
+    public function createImportIndex(Connection $connection, string $importSourceName): ImportIndex
     {
-        return new ImportIndex($connection, $this->schemaService, $importSource);
+        return new ImportIndex($connection, $this->schemaService, $importSourceName);
     }
 }

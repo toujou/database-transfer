@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Export;
 
+use Toujou\DatabaseTransfer\DTO\RecordAction;
+use Toujou\DatabaseTransfer\DTO\RecordChangeSet;
 use Toujou\DatabaseTransfer\Service\SchemaService;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -11,7 +13,7 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 
 class ImportIndex
 {
-    /** @var array<string, array<int, array<string, int|null>>> */
+    /** @var array<string, array<int, int|null>> */
     private array $index = [];
 
     private string $importIndexTableName;
@@ -21,10 +23,10 @@ class ImportIndex
     public function __construct(
         private readonly Connection $connection,
         private readonly SchemaService $schemaService,
-        string $importSource,
+        string $importSourceName,
     ) {
-        $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $importSource);
-        $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $importSource);
+        $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $importSourceName);
+        $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $importSourceName);
     }
 
     public function getConnection(): Connection
@@ -32,10 +34,7 @@ class ImportIndex
         return $this->connection;
     }
 
-    /**
-     * @return mixed[]
-     */
-    public function compare(ExportIndex $exportIndex, bool $isDeltaUpdate = false): array
+    public function compare(ExportIndex $exportIndex, bool $isDeltaUpdate = false): RecordChangeSet
     {
         $this->schemaService->emptyTable($this->connection, $this->exportIndexTableName);
         $this->copySourceExportTableData($exportIndex);
@@ -70,51 +69,32 @@ class ImportIndex
         $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
         $result = $this->connection->executeQuery($sql);
 
-        $recordsToCreate = [];
-        $recordsToUpdate = [];
-        $recordsToDelete = [];
+        $rows = $result->fetchAllAssociative();
 
-        foreach ($result->iterateAssociative() as $row) {
-            if (isset($row['im_sourceuid'], $row['ex_sourceuid'])) {
-                $recordsToUpdate[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
-                    'tablename' => $row['im_tablename'],
-                    'sourceuid' => (int)$row['im_sourceuid'],
-                    'type' => $row['im_type'],
-                    'targetuid' => (int)$row['im_targetuid'],
-                    'updated_at' => $row['updated_at'],
-                ];
-            } elseif (isset($row['ex_sourceuid'])) {
-                $recordsToCreate[$row['ex_tablename'] . '_' . $row['ex_sourceuid']] = [
-                    'tablename' => $row['ex_tablename'],
-                    'sourceuid' => (int)$row['ex_sourceuid'],
-                    'type' => $row['ex_type'],
-                    'targetuid' => (int)$row['ex_targetuid'],
-                    'updated_at' => $row['updated_at'],
-                ];
-            } elseif (isset($row['im_sourceuid'])) {
-                $recordsToCreate[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
-                    'tablename' => $row['im_tablename'],
-                    'sourceuid' => (int)$row['im_sourceuid'],
-                    'type' => $row['im_type'],
-                    'targetuid' => (int)$row['im_targetuid'],
-                    'updated_at' => $row['updated_at'],
-                ];
-            } else {
-                throw new \UnexpectedValueException('Export index to import index comparison returned an unexpected row.', 1741349615);
-            }
-        }
+        $items = array_map(fn(array $row) => RecordAction::fromArray(
+            [
+                'tablename' => $row['im_tablename'] ?: $row['ex_tablename'],
+                'sourceuid' => $row['im_sourceuid'] ?: $row['ex_sourceuid'],
+                'type' => $row['im_type'] ?: $row['ex_type'],
+                'targetuid' => $row['im_targetuid'] ?? 0,
+                'updated_at' => $row['updated_at'],
+            ],
+        ), $rows);
+
+        $comparisonResult = RecordChangeSet::create($items);
+
         $result->free();
 
-        foreach ($recordsToUpdate as $existingEntry) {
-            $this->index[$existingEntry['tablename']][$existingEntry['sourceuid']] = $existingEntry;
+        foreach ($comparisonResult->getRecordsToUpdate() as $existingEntry) {
+            $this->index[$existingEntry->tableName][$existingEntry->sourceUid] = $existingEntry->targetUid;
         }
 
-        return [$recordsToCreate, $recordsToUpdate, $recordsToDelete];
+        return $comparisonResult;
     }
 
     public function translateUid(string $tableName, int $sourceUid): ?int
     {
-        return $this->index[$tableName][$sourceUid]['targetuid'] ?? null;
+        return $this->index[$tableName][$sourceUid] ?? null;
     }
 
     /**
@@ -187,20 +167,14 @@ class ImportIndex
         ]);
     }
 
-    /**
-     * @param mixed[] $record
-     * @return mixed[]
-     */
-    public function addToIndex(array $record): array
+    public function addToIndex(RecordAction $record, int $targetUid): void
     {
-        $this->index[$record['tablename']][$record['sourceuid']] = [
-            'type' => $record['type'],
-            'targetuid' => $record['targetuid'],
-        ];
+        $this->index[$record->tableName][$record->sourceUid] = $targetUid;
 
-        $this->connection->insert($this->importIndexTableName, $record);
-
-        return $record;
+        $this->connection->insert($this->importIndexTableName, [
+            ...$record->toArray(),
+            'targetuid' => $targetUid,
+        ]);
     }
 
     /**
@@ -241,6 +215,20 @@ class ImportIndex
         if ($buffer) {
             $this->connection->bulkInsert($this->exportIndexTableName, $buffer, array_keys($buffer[0]));
         }
+    }
+
+    public function updateUpdatedAtTimestamp(RecordAction $row): void
+    {
+        $this->connection->update(
+            $this->importIndexTableName,
+            [
+                'updated_at' => $row->updatedAt,
+            ],
+            [
+                'tablename' => $row->tableName,
+                'sourceuid' => $row->sourceUid,
+            ],
+        );
     }
 
     public function __destruct()
