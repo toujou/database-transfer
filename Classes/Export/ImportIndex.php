@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Export;
 
+use Toujou\DatabaseTransfer\DTO\MmTableRecordChangeSet;
 use Toujou\DatabaseTransfer\DTO\RecordAction;
 use Toujou\DatabaseTransfer\DTO\RecordChangeSet;
 use Toujou\DatabaseTransfer\Service\SchemaService;
@@ -80,7 +81,7 @@ class ImportIndex
         $items = array_map(fn(array $row) => RecordAction::fromArray(
             [
                 'tablename' => $row['im_tablename'] ?: $row['ex_tablename'],
-                'sourceuid' => $row['im_sourceuid'] ?: $row['ex_sourceuid'],
+                'sourceuid' => $row['ex_sourceuid'],
                 'type' => $row['im_type'] ?: $row['ex_type'],
                 'targetuid' => $row['im_targetuid'] ?? 0,
                 'updated_at' => $row['updated_at'],
@@ -167,7 +168,15 @@ class ImportIndex
 
             $result = $query->executeQuery();
             foreach ($result->iterateAssociative() as $row) {
-                yield $mmTableName => $row;
+                $keyParts = [
+                    $mmTableName,
+                    $row['uid_local'],
+                    $row['uid_foreign'],
+                    $row['tablenames'] ?? null,
+                    $row['fieldname'] ?? null,
+                ];
+
+                yield implode(':', array_filter($keyParts)) => $row;
             }
             $result->free();
         }
@@ -249,5 +258,32 @@ class ImportIndex
             $this->schemaService->dropTable($this->connection, $this->exportIndexTableName);
         } catch (\Exception) {
         }
+    }
+
+    public function compareMmTableRecords(ExportIndex $exportIndex): MmTableRecordChangeSet
+    {
+        $currentMmTableRecords = iterator_to_array($this->getMMRecords($exportIndex));
+        $exportMmTableRecords = [];
+
+        foreach ($exportIndex->getMmRecords() as $combinedKey => $row) {
+            [$table] = explode(':', $combinedKey);
+            $localTable = $row['_local_table'];
+            $foreignTable = $row['_foreign_table'];
+            unset($row['_local_table'], $row['_foreign_table']);
+            $row['uid_local'] = $this->translateUid($localTable, $row['uid_local']);
+            $row['uid_foreign'] = $this->translateUid($foreignTable, $row['uid_foreign']);
+
+            $keyParts = [
+                $table,
+                $row['uid_local'],
+                $row['uid_foreign'],
+                $row['tablenames'] ?? null,
+                $row['fieldname'] ?? null,
+            ];
+
+            $exportMmTableRecords[implode(':', array_filter($keyParts))] = $row;
+        }
+
+        return MmTableRecordChangeSet::create($currentMmTableRecords, $exportMmTableRecords);
     }
 }

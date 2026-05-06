@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\DTO;
 
-final class RecordAction
+final readonly class RecordAction
 {
     private function __construct(
-        public readonly string $tableName,
-        public readonly string $type,
-        public readonly ?int $sourceUid,
-        public readonly ?int $targetUid,
-        public readonly ?int $updatedAt,
+        public string $tableName,
+        public string $type,
+        public ?int   $sourceUid,
+        public ?int   $targetUid,
+        public ?int   $updatedAt,
     ) {}
 
     public function isCreateAction(): bool

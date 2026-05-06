@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\DTO;
 
-final class RecordChangeSet
+final readonly class RecordChangeSet
 {
     /**
      * @param RecordAction[] $recordActions
      */
     private function __construct(
-        private readonly array $recordActions,
+        private array $recordActions,
     ) {}
 
     /**

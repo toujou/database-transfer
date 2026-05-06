@@ -173,7 +173,16 @@ class ExportIndex
 
             $result = $this->connection->executeQuery($sql);
             foreach ($result->iterateAssociative() as $row) {
-                yield $mmTableName => $row;
+
+                $keyParts = [
+                    $mmTableName,
+                    $row['uid_local'],
+                    $row['uid_foreign'],
+                    $row['tablenames'] ?? null,
+                    $row['fieldname'] ?? null,
+                ];
+
+                yield implode(':', array_filter($keyParts)) => $row;
             }
             $result->free();
         }

@@ -7,6 +7,7 @@ namespace Toujou\DatabaseTransfer\Service;
 use Psr\Log\LoggerInterface;
 use Toujou\DatabaseTransfer\Database\RelationAnalyzer;
 use Toujou\DatabaseTransfer\Database\RelationEditor;
+use Toujou\DatabaseTransfer\DTO\MmTableRecordAction;
 use Toujou\DatabaseTransfer\Export\ExportIndexFactory;
 use Toujou\DatabaseTransfer\Export\ImportIndexFactory;
 use Toujou\DatabaseTransfer\Export\Selection;
@@ -45,29 +46,17 @@ class TransferService
                 $importIndex->addToIndex($item, $targetUid);
             }
 
-            // @todo remove this snippet -> leading to missing refs on partial updates
-            foreach ($importIndex->getMMRecords($exportIndex) as $mmTableName => $row) {
-                $this->deleteRow($targetDatabase, $mmTableName, $row);
-            }
-            foreach ($exportIndex->getMMRecords() as $mmTableName => $row) {
-                $localTable = $row['_local_table'];
-                $foreignTable = $row['_foreign_table'];
-                unset($row['_local_table'], $row['_foreign_table']);
-                $row['uid_local'] = $importIndex->translateUid($localTable, $row['uid_local']);
-                $row['uid_foreign'] = $importIndex->translateUid($foreignTable, $row['uid_foreign']);
-                if ($row['uid_local'] && $row['uid_foreign']) {
-                    $this->insertRow($targetDatabase, $mmTableName, $row, $tableColumnMetas[$mmTableName]);
-                } else {
-                    $this->logger->debug(
-                        '[DatabaseTransfer] Skipping MM insert: missing translated UID',
-                        [
-                            'mmTable' => $mmTableName,
-                            'localTable' => $localTable,
-                            'foreignTable' => $foreignTable,
-                            'originalUidLocal' => $row['uid_local'],
-                            'originalUidForeign' => $row['uid_foreign'],
-                        ],
-                    );
+            $mmComparisonResult = $importIndex->compareMmTableRecords($exportIndex);
+            foreach ($mmComparisonResult->getMmTableRecordActions() as $action) {
+                $table = $action->getTableName();
+                $row = $action->getData();
+
+                if ($action->getActionType() !== MmTableRecordAction::CREATE) {
+                    $this->deleteRow($targetDatabase, $table, $row);
+                }
+
+                if ($action->getActionType() !== MmTableRecordAction::DELETE) {
+                    $this->insertRow($targetDatabase, $table, $row, $tableColumnMetas[$table]);
                 }
             }
 
