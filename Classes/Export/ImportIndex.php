@@ -13,8 +13,19 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 
 class ImportIndex
 {
-    /** @var array<string, array<int, int|null>> */
-    private array $index = [];
+    /**
+     * @var array<string, array<int, int>>
+     *
+     * Maps a table name to a map of source UIDs to target UIDs.
+     *
+     * Structure:
+     * [
+     *     'table_name' => [
+     *         sourceUid (int) => targetUid (int),
+     *     ],
+     * ]
+     */
+    private ?array $mapping = null;
 
     private string $importIndexTableName;
 
@@ -27,11 +38,6 @@ class ImportIndex
     ) {
         $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $importSourceName);
         $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $importSourceName);
-    }
-
-    public function getConnection(): Connection
-    {
-        return $this->connection;
     }
 
     public function compare(ExportIndex $exportIndex, bool $isDeltaUpdate = false): RecordChangeSet
@@ -85,16 +91,25 @@ class ImportIndex
 
         $result->free();
 
-        foreach ($comparisonResult->getRecordsToUpdate() as $existingEntry) {
-            $this->index[$existingEntry->tableName][$existingEntry->sourceUid] = $existingEntry->targetUid;
-        }
-
         return $comparisonResult;
     }
 
     public function translateUid(string $tableName, int $sourceUid): ?int
     {
-        return $this->index[$tableName][$sourceUid] ?? null;
+        if ($this->mapping === null) {
+            $result = $this->connection->createQueryBuilder()
+                ->select('tablename', 'sourceuid', 'targetuid')
+                ->from($this->importIndexTableName)
+                ->executeQuery();
+
+            while ($row = $result->fetchAssociative()) {
+                $this->mapping[$row['tablename']][(int)$row['sourceuid']] = (int)$row['targetuid'];
+            }
+
+            $result->free();
+        }
+
+        return $this->mapping[$tableName][$sourceUid] ?? null;
     }
 
     /**
@@ -160,7 +175,6 @@ class ImportIndex
 
     public function removeFromIndex(string $tableName, int $sourceUid): void
     {
-        unset($this->index[$tableName][$sourceUid]);
         $this->connection->delete($this->importIndexTableName, [
             'tablename' => $tableName,
             'sourceuid' => $sourceUid,
@@ -169,8 +183,6 @@ class ImportIndex
 
     public function addToIndex(RecordAction $record, int $targetUid): void
     {
-        $this->index[$record->tableName][$record->sourceUid] = $targetUid;
-
         $this->connection->insert($this->importIndexTableName, [
             ...$record->toArray(),
             'targetuid' => $targetUid,
