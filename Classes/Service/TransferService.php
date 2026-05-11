@@ -8,6 +8,7 @@ use Psr\Log\LoggerInterface;
 use Toujou\DatabaseTransfer\Database\RelationAnalyzer;
 use Toujou\DatabaseTransfer\Database\RelationEditor;
 use Toujou\DatabaseTransfer\DTO\MmTableRecordAction;
+use Toujou\DatabaseTransfer\DTO\RelationTranslation;
 use Toujou\DatabaseTransfer\Export\ExportIndexFactory;
 use Toujou\DatabaseTransfer\Export\ImportIndexFactory;
 use Toujou\DatabaseTransfer\Export\Selection;
@@ -79,11 +80,12 @@ class TransferService
                     $record['pid'] = $importIndex->translateUid('pages', (int)$record['pid']) ?? 0;
                 }
 
-                $relations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int)$record['uid']));
-                $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relations);
-                foreach ($relations as $relation) {
-                    if ($relation['translated'] !== null && $tableName === $relation['translated']['tablename']) {
-                        $this->insertRow($targetDatabase, 'sys_refindex', $relation['translated'], $tableColumnMetas['sys_refindex']);
+                /** @var RelationTranslation[] $relationTranslations */
+                $relationTranslations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int)$record['uid']));
+                $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relationTranslations);
+                foreach ($relationTranslations as $relationTranslation) {
+                    if ($tableName === $relationTranslation->translated?->getTableName()) {
+                        $this->insertRow($targetDatabase, 'sys_refindex', $relationTranslation->translated->toArray(), $tableColumnMetas['sys_refindex']);
                     }
                 }
 

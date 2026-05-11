@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Database;
 
+use Toujou\DatabaseTransfer\DTO\Relation;
+use Toujou\DatabaseTransfer\DTO\RelationTranslation;
 use TYPO3\CMS\Core\Configuration\FlexForm\FlexFormTools;
 use TYPO3\CMS\Core\DataHandling\SoftReference\SoftReferenceParserFactory;
 use TYPO3\CMS\Core\LinkHandling\LinkService;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\Exception\MissingArrayPathException;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -16,32 +19,37 @@ readonly class RelationEditor
     public function __construct(
         private SoftReferenceParserFactory $softReferenceParserFactory,
         private LinkService $linkService,
+        private TcaSchemaFactory $tcaSchemaFactory,
     ) {}
 
     /**
      * @param mixed[] $record
-     * @param array<int, array{original: array<string, mixed>}> $relationMap
+     * @param RelationTranslation[] $relationTranslations
      *
      * @return mixed[]
      */
-    public function editRelationsInRecord(string $tableName, int $uid, array $record, array $relationMap): array
+    public function editRelationsInRecord(string $tableName, int $uid, array $record, array $relationTranslations): array
     {
-        if (empty($relationMap)) {
+        if (empty($relationTranslations)) {
             return $record;
         }
 
         $forwardPointingRelations = [];
         $backwardsPointingRelations = [];
-        foreach ($relationMap as $relationTranslation) {
-            $relation = $relationTranslation['original'];
-            $relationTableName = $relation['tablename'];
-            $referencedTableName = $relation['ref_table'];
-            $columnName = $relation['field'];
+        foreach ($relationTranslations as $relationTranslation) {
+            $originalRelation = $relationTranslation->original;
 
-            if (!isset($GLOBALS['TCA'][$relationTableName]['columns'][$columnName]['config'])) {
+            $relationTableName = $originalRelation->getTableName();
+            $referencedTableName = $originalRelation->getRefTable();
+            $columnName = $originalRelation->getField();
+
+            $schema = $this->tcaSchemaFactory->get($relationTableName);
+
+            if (!$schema->hasField($columnName)) {
                 continue;
             }
-            $columnConfig = $GLOBALS['TCA'][$relationTableName]['columns'][$columnName]['config'];
+
+            $columnConfig = $schema->getField($columnName)->getConfiguration();
 
             if ($tableName === $relationTableName && isset($record[$columnName]) && !isset($columnConfig['foreign_field'])) {
                 if (!isset($forwardPointingRelations[$columnName])) {
@@ -88,32 +96,36 @@ readonly class RelationEditor
     }
 
     /**
-     * @param mixed[] $relations
+     * @param RelationTranslation[] $relationTranslations
      * @param mixed[] $record
      */
-    private function translateRelationsInFlexColumn(array $relations, string $tableName, string $columnName, array $record): mixed
+    private function translateRelationsInFlexColumn(array $relationTranslations, string $tableName, string $columnName, array $record): mixed
     {
         $flexFormTools = GeneralUtility::makeInstance(FlexFormTools::class);
-        $dataStructureIdentifier = $flexFormTools->getDataStructureIdentifier($GLOBALS['TCA'][$tableName]['columns'][$columnName], $tableName, $columnName, $record);
+        $tableTcaSchema = $this->tcaSchemaFactory->get($tableName);
+        $fieldConfig['config'] = $tableTcaSchema->getField($columnName)->getConfiguration();
+        $dataStructureIdentifier = $flexFormTools->getDataStructureIdentifier($fieldConfig, $tableName, $columnName, $record);
+
         $dataStructureArray = $flexFormTools->parseDataStructureByIdentifier($dataStructureIdentifier);
         $flexFormData = GeneralUtility::xml2array($record[$columnName]);
         $flexFormDataChanged = false;
 
-        $relationsByFlexpointer = [];
-        foreach ($relations as $relation) {
-            if (empty($relation['original']['flexpointer'])) {
+        /** @var RelationTranslation[] $relationsByFlexPointer */
+        $relationsByFlexPointer = [];
+        foreach ($relationTranslations as $relation) {
+            if (empty($relation->original->getFlexPointer())) {
                 continue;
             }
-            $relationsByFlexpointer[$relation['original']['flexpointer']][] = $relation;
+            $relationsByFlexPointer[$relation->original->getFlexPointer()][] = $relation;
         }
 
-        foreach ($relationsByFlexpointer as $flexpointer => $relationsOfFlexpointer) {
-            $flexPointer = trim($flexpointer, '/');
+        foreach ($relationsByFlexPointer as $flexPointer => $relationsOfFlexPointer) {
+            $flexPointer = trim($flexPointer, '/');
 
             try {
                 $fieldConfig = ArrayUtility::getValueByPath($dataStructureArray, 'sheets/' . str_replace(['/lDEF/', '/vDEF'], ['/ROOT/el/', '/config'], $flexPointer));
                 $dataValue = ArrayUtility::getValueByPath($flexFormData, 'data/' . $flexPointer);
-                $translatedValue = $this->translateForwardPointingRelationsInColumn($relationsOfFlexpointer, $dataValue, $fieldConfig);
+                $translatedValue = $this->translateForwardPointingRelationsInColumn($relationsOfFlexPointer, $dataValue, $fieldConfig);
                 $flexFormData = ArrayUtility::setValueByPath($flexFormData, 'data/' . $flexPointer, $translatedValue);
                 $flexFormDataChanged = true;
             } catch (MissingArrayPathException) {
@@ -128,12 +140,11 @@ readonly class RelationEditor
     }
 
     /**
-     * @internal This method needs to be public, so the callback object in ->removeRelationsFromFlexColumn can call it.
-     *
-     * @param mixed[] $relations
+     * @param RelationTranslation[] $relationTranslations
      * @param mixed[] $fieldConfig
+     *@internal This method needs to be public, so the callback object in ->removeRelationsFromFlexColumn can call it.
      */
-    public function translateForwardPointingRelationsInColumn(array $relations, mixed $value, array $fieldConfig): mixed
+    public function translateForwardPointingRelationsInColumn(array $relationTranslations, mixed $value, array $fieldConfig): mixed
     {
         if (empty($value)) {
             return $value;
@@ -144,8 +155,17 @@ readonly class RelationEditor
             $prependTableName = $fieldConfig['prepend_tname'] ?? count($foreignTables) > 1;
 
             $translationMap = \array_combine(
-                \array_map(fn(array $relation) => ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['original']['ref_uid'] ?? 0), $relations),
-                \array_map(fn(array $relation) => empty($relation['translated']['ref_uid']) ? null : ($prependTableName ? $relation['ref_table'] . '_' : '') . ($relation['translated']['ref_uid']), $relations),
+                \array_map(
+                    fn(RelationTranslation $relationTranslation) => (
+                        $prependTableName ? $relationTranslation->original->getRefTable() . '_' : ''
+                    ) . ($relationTranslation->original->getRefUid()),
+                    $relationTranslations,
+                ),
+                \array_map(
+                    fn(RelationTranslation $relationTranslation) =>
+                    empty($relationTranslation->translated) ? null : ($prependTableName ? $relationTranslation->translated->getRefTable() . '_' : '') . ($relationTranslation->translated->getRefUid()),
+                    $relationTranslations,
+                ),
             );
 
             return $this->translateList($value, $translationMap);
@@ -155,8 +175,8 @@ readonly class RelationEditor
             isset($fieldConfig['foreign_table']) &&
             !isset($fieldConfig['foreign_field'])) {
             $translationMap = \array_combine(
-                \array_map(fn(array $relation) => $relation['original']['ref_uid'] ?? 0, $relations),
-                \array_map(fn(array $relation) => $relation['translated']['ref_uid'] ?? null, $relations),
+                \array_map(fn(RelationTranslation $relationTranslation) => $relationTranslation->original->getRefUid(), $relationTranslations),
+                \array_map(fn(RelationTranslation $relationTranslation) => $relationTranslation->translated?->getRefUid(), $relationTranslations),
             );
 
             return $this->translateList($value, $translationMap);
@@ -166,8 +186,19 @@ readonly class RelationEditor
         if ($fieldConfig['type'] === 'link' && empty($fieldConfig['softref'])) {
             $fieldConfig['softref'] = 'typolink';
         }
-        if (isset($fieldConfig['softref']) && count(\array_filter(\array_column(\array_column($relations, 'original'), 'softref_key'))) > 0) {
-            return $this->translateRelationsFromSoftReferences($relations, $value, $fieldConfig['softref']);
+
+        $hasSoftRefs = false;
+        if (isset($fieldConfig['softref'])) {
+            foreach ($relationTranslations as $relationTranslation) {
+                if ($relationTranslation->original->getSoftrefKey() !== null) {
+                    $hasSoftRefs = true;
+                    break;
+                }
+            }
+        }
+
+        if ($hasSoftRefs) {
+            return $this->translateRelationsFromSoftReferences($relationTranslations, $value, $fieldConfig['softref']);
         }
 
         return $value;
@@ -192,20 +223,21 @@ readonly class RelationEditor
     }
 
     /**
-     * @param mixed[] $relations
+     * @param RelationTranslation[] $relationTranslations
      */
-    private function translateRelationsFromSoftReferences(array $relations, mixed $value, string $softref): mixed
+    private function translateRelationsFromSoftReferences(array $relationTranslations, mixed $value, string $softref): mixed
     {
-        $representativeRelation = \reset($relations)['original'];
+        /** @var Relation $representativeRelation */
+        $representativeRelation = \reset($relationTranslations)->original;
         $parsedValue = $value;
         $matchedElements = [];
         foreach ($this->softReferenceParserFactory->getParsersBySoftRefParserList($softref) as $softReferenceParser) {
             $parserResult = $softReferenceParser->parse(
-                $representativeRelation['tablename'],
-                $representativeRelation['field'],
-                $representativeRelation['recuid'],
+                $representativeRelation->getTableName(),
+                $representativeRelation->getField(),
+                $representativeRelation->getRecordUid(),
                 $parsedValue,
-                $representativeRelation['flexpointer'],
+                $representativeRelation->getFlexPointer(),
             );
             if ($parserResult->hasMatched()) {
                 $matchedElements[$softReferenceParser->getParserKey()] = $parserResult->getMatchedElements();
@@ -236,11 +268,12 @@ readonly class RelationEditor
 
         // As the reference index stores the key of the softreference parser and the id, we need to map this to the
         // softreference tokenId.
-        foreach ($relations as $relation) {
-            $originalRelation = $relation['original'] ?? null;
-            $translatedRelation = $relation['translated'] ?? null;
-            $softrefKey = $originalRelation['softref_key'];
-            $softrefId = $originalRelation['softref_id'];
+        foreach ($relationTranslations as $relationTranslation) {
+            $originalRelation = $relationTranslation->original;
+            $translatedRelation = $relationTranslation->translated;
+
+            $softrefKey = $originalRelation->getSoftrefKey();
+            $softrefId = $originalRelation->getSoftrefId();
             $softrefElement = $matchedElements[$softrefKey][$softrefId] ?? null;
             $tokenId = $softrefElement['subst']['tokenID'] ?? null;
 
@@ -248,7 +281,7 @@ readonly class RelationEditor
                 continue;
             }
 
-            if (($translatedRelation['ref_uid'] ?? null) === null) {
+            if (($translatedRelation?->getRefUid()) === null) {
                 $softrefValues['{softref:' . $tokenId . '}'] = '';
 
                 continue;
@@ -259,7 +292,7 @@ readonly class RelationEditor
                     // @todo add handling for files
 
                 case 'db':
-                    $insertValue = $translatedRelation['ref_uid'];
+                    $insertValue = $translatedRelation->getRefUid();
                     $tokenValue = (string)$softrefElement['subst']['tokenValue'];
                     if (str_contains($tokenValue, ':')) {
                         [$tokenKey] = explode(':', $tokenValue);
@@ -276,8 +309,8 @@ readonly class RelationEditor
 
                         $parts = $this->linkService->resolve($link);
 
-                        if ($translatedRelation['ref_table'] === 'pages') {
-                            $parts['pageuid'] = $translatedRelation['ref_uid'];
+                        if ($translatedRelation->getTableName() === 'pages') {
+                            $parts['pageuid'] = $translatedRelation->getRefUid();
                         }
                         // content element anchors will be replaced via own softref
                         if ((int)($parts['fragment'] ?? 0) > 0) {
@@ -309,18 +342,20 @@ readonly class RelationEditor
         if (isset($column['config']['foreign_table_field'])) {
             $matchFields[$column['config']['foreign_table_field']] = $relationTableName;
         }
+        /** @var RelationTranslation $relationTranslation */
         foreach ($column['relations'] as $relationTranslation) {
-            $relation = $relationTranslation['translated'];
+            $relation = $relationTranslation->translated;
+
             if ($relation !== null &&
-                $tableName !== $relation['ref_table'] &&
-                $uid !== ((int)$relation['ref_uid']) &&
-                ((int)$record[$foreignFieldColumnName]) !== ((int)$relation['recuid']) &&
+                $tableName !== $relation->getRefTable() &&
+                $uid !== ($relation->getRefUid()) &&
+                ((int)$record[$foreignFieldColumnName]) !== ((int)$relation->getRefUid()) &&
                 count(\array_diff_assoc($matchFields, $record)) > 0
             ) {
                 continue;
             }
             if ($relation !== null) {
-                $record[$foreignFieldColumnName] = $relation['recuid'];
+                 $record[$foreignFieldColumnName] = $relation->getRecordUid();
             } else {
                 // Lost relation
                 $record[$foreignFieldColumnName] = 0;

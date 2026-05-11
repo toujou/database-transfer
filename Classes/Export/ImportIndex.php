@@ -7,6 +7,8 @@ namespace Toujou\DatabaseTransfer\Export;
 use Toujou\DatabaseTransfer\DTO\MmTableRecordChangeSet;
 use Toujou\DatabaseTransfer\DTO\RecordAction;
 use Toujou\DatabaseTransfer\DTO\RecordChangeSet;
+use Toujou\DatabaseTransfer\DTO\Relation;
+use Toujou\DatabaseTransfer\DTO\RelationTranslation;
 use Toujou\DatabaseTransfer\Service\SchemaService;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -114,11 +116,9 @@ class ImportIndex
     }
 
     /**
-     * @param mixed[] $relation
-     *
-     * @return mixed[]
+     * @param mixed[] $relation*
      */
-    public function translateRelation(array $relation): array
+    public function translateRelation(array $relation): RelationTranslation
     {
         $original = $translated = $relation;
         $translated['recuid'] = $this->translateUid($translated['tablename'], $translated['recuid']);
@@ -133,7 +133,10 @@ class ImportIndex
             $translated['hash'] = $this->calculateReferenceIndexRelationHash($translated);
         }
 
-        return ['original' => $original, 'translated' => $translated];
+        return RelationTranslation::create(
+            Relation::fromArray($original),
+            is_array($translated) ? Relation::fromArray($translated) : null,
+        );
     }
 
     public function getMMRecords(ExportIndex $exportIndex): \Generator
