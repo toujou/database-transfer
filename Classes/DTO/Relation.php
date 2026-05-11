@@ -23,34 +23,34 @@ final readonly class Relation
         return $this->relation['recuid'];
     }
 
-    public function getField(): string
+    public function getField(): ?string
     {
-        return $this->relation['field'];
+        return $this->relation['field'] ?? null;
     }
 
     public function getFlexPointer(): string
     {
-        return $this->relation['flexpointer'];
+        return $this->relation['flexpointer'] ?? '';
     }
 
-    public function getSoftRefKey(): string
+    public function getSoftRefKey(): ?string
     {
-        return $this->relation['softref_key'];
+        return $this->relation['softref_key'] ?? null;
     }
 
-    public function getSoftRefId(): string
+    public function getSoftRefId(): ?string
     {
-        return $this->relation['softref_id'];
+        return $this->relation['softref_id'] ?? null;
     }
 
-    public function getRefTable(): string
+    public function getRefTable(): ?string
     {
-        return $this->relation['ref_table'];
+        return $this->relation['ref_table'] ?? null;
     }
 
-    public function getRefUid(): int
+    public function getRefUid(): ?int
     {
-        return (int)$this->relation['ref_uid'];
+        return isset($this->relation['ref_uid']) ? (int)$this->relation['ref_uid'] : null;
     }
 
     /**

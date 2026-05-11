@@ -25,6 +25,7 @@ readonly class SoftReferenceRelationTranslator implements RelationTranslationStr
     {
         $hasSoftRefs = false;
         if (isset($fieldConfig['softref'])) {
+            /** @var RelationTranslation $relationTranslation */
             foreach ($relationTranslations as $relationTranslation) {
                 if ($relationTranslation->original->getSoftrefKey() !== null) {
                     $hasSoftRefs = true;

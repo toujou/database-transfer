@@ -42,8 +42,13 @@ readonly class GroupRelationTranslator implements RelationTranslationStrategy
     private function translateList(mixed $list, array $translationMap): mixed
     {
         $existingElements = GeneralUtility::trimExplode(',', (string)$list, true);
-        $translatedElements = \array_map(fn($source) => $translationMap[$source], $existingElements);
-        $translatedElements = \array_filter($translatedElements);
+
+        $translatedElements = array_values(array_filter(
+            array_map(
+                static fn($source) => $translationMap[$source] ?? null,
+                $existingElements,
+            ),
+        ));
 
         if ($existingElements !== $translatedElements) {
             $originalType = gettype($list);
