@@ -63,7 +63,7 @@ readonly class TransferService
 
             // TODO replace by $importIndex->deleteRefindex
             foreach ($comparisonResult->getRecordsToUpdate() as $row) {
-                if ($row->updatedAt) {
+                if ($row->updatedAt !== null) {
                     $importIndex->updateUpdatedAtTimestamp($row);
                 }
                 $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row->tableName, 'recuid' => $row->targetUid]);
