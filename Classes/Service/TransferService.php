@@ -15,15 +15,15 @@ use Toujou\DatabaseTransfer\Export\Selection;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
-class TransferService
+readonly class TransferService
 {
     public function __construct(
-        private readonly ConnectionPool $connectionPool,
-        private readonly ExportIndexFactory $exportIndexFactory,
-        private readonly ImportIndexFactory $importIndexFactory,
-        private readonly SchemaService $schemaService,
-        private readonly RelationEditor $relationEditor,
-        private readonly LoggerInterface $logger,
+        private ConnectionPool $connectionPool,
+        private ExportIndexFactory $exportIndexFactory,
+        private ImportIndexFactory $importIndexFactory,
+        private SchemaService $schemaService,
+        private RelationEditor $relationEditor,
+        private LoggerInterface $logger,
     ) {}
 
     public function transfer(Selection $selection, string $transferName, string $importSourceName, bool $isDeltaUpdate = false): void
