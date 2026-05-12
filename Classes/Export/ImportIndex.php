@@ -64,7 +64,7 @@ class ImportIndex
             (clone $query) // recordsToUpdate
                 ->from($this->importIndexTableName, 'im')
                 ->innerJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
-                ->where($isDeltaUpdate ? 'ex.updated_at IS NULL OR (ex.updated_at != im.updated_at)' : '1'),
+                ->where($isDeltaUpdate ? 'im.updated_at IS NULL OR (ex.updated_at != im.updated_at)' : '1'),
 
             (clone $query) // recordsToCreate
                 ->from($this->exportIndexTableName, 'ex')
