@@ -1,0 +1,14 @@
+@import './setup.typoscript'
+
+page {
+	20 = COA
+	20 {
+		10 = EXTBASEPLUGIN
+		10 {
+			extensionName = TestIrreForeignfield
+			pluginName = Test
+		}
+		stdWrap.postUserFunc = TYPO3\TestingFramework\Core\Functional\Framework\Frontend\Renderer->parseValues
+		stdWrap.postUserFunc.as = Extbase
+	}
+}
