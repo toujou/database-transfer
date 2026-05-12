@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Export;
 
+use Toujou\DatabaseTransfer\DTO\RecordAction;
+use Toujou\DatabaseTransfer\DTO\RecordChangeSet;
 use Toujou\DatabaseTransfer\Service\SchemaService;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -13,6 +15,7 @@ class ExportIndex
 {
     private string $indexTableName;
 
+    /** @var mixed[] */
     private array $mmRelations = [];
 
     public function __construct(
@@ -42,26 +45,16 @@ class ExportIndex
 
         return (int)$this->connection->executeStatement(
             \sprintf(
-                'INSERT INTO %s (tablename,sourceuid,type) %s',
+                'INSERT INTO %s (tablename,sourceuid,type,updated_at) %s',
                 $query->quoteIdentifier($this->indexTableName),
                 $query->getSQL(),
             ),
         );
     }
 
-    public function updateIndex(array $indexRows): void
-    {
-        $this->connection->transactional(function () use ($indexRows) {
-            foreach ($indexRows as $row) {
-                $this->connection->update(
-                    $this->indexTableName,
-                    ['targetuid' => (int)$row['targetuid']],
-                    ['tablename' => $row['tablename'], 'sourceuid' => $row['sourceuid']],
-                );
-            }
-        });
-    }
-
+    /**
+     * @param mixed[] $mmMatchFields
+     */
     public function addMMRelation(string $mmTableName, string $localTableName, string $foreignTableName, array $mmMatchFields): void
     {
         \asort($mmMatchFields); // Normalize
@@ -73,11 +66,17 @@ class ExportIndex
         $this->mmRelations[$mmTableName][crc32(serialize($mmQuery))] = $mmQuery;
     }
 
+    /**
+     * @return mixed[]
+     */
     public function getMmRelations(): array
     {
         return $this->mmRelations;
     }
 
+    /**
+     * @return string[]
+     */
     public function getRecordTableNames(): array
     {
         $tableNamesQuery = $this->connection->createQueryBuilder();
@@ -87,6 +86,9 @@ class ExportIndex
         return \array_unique(\array_column($tableNamesQuery->executeQuery()->fetchAllAssociative(), 'tablename'));
     }
 
+    /**
+     * @return string[]
+     */
     public function getAllTableNames(): array
     {
         return \array_merge(
@@ -96,14 +98,17 @@ class ExportIndex
         );
     }
 
-    public function getRecordCount(): int
+    public function getSourceTcaRecords(RecordChangeSet $result): \Generator
     {
-        return $this->connection->count('sourceuid', $this->indexTableName, []);
-    }
+        $recordsToPersist = $result->getRecordsToPersist();
 
-    public function getRecords(): \Generator
-    {
-        foreach ($this->getRecordTableNames() as $recordTableName) {
+        $tableNames = array_unique(array_map(static fn(RecordAction $record) => $record->tableName, $recordsToPersist));
+        foreach ($tableNames as $recordTableName) {
+            $recordUids = array_unique(array_map(
+                static fn(RecordAction $record) => $record->sourceUid,
+                array_filter($recordsToPersist, static fn(RecordAction $record) => $record->tableName === $recordTableName),
+            ));
+
             $query = $this->connection->createQueryBuilder();
             $expr = $query->expr();
             $query->getRestrictions()->removeAll()->add(new DeletedRestriction());
@@ -114,6 +119,7 @@ class ExportIndex
                     'ex',
                     (string)$expr->and(
                         $expr->eq('ex.sourceuid', 'rt.uid'),
+                        $expr->in('ex.sourceuid', $recordUids),
                         $expr->eq('ex.tablename', $query->quote($recordTableName)),
                         $expr->neq('ex.type', $query->quote('static')),
                     ),
@@ -146,32 +152,37 @@ class ExportIndex
                 (string)$expr->eq('exr.sourceuid', 'mm.uid_foreign'),
             );
 
-            $queries = \array_map(function (array $queryParameters) use ($query, $expr) {
-                return (clone $query)
-                    ->addSelectLiteral(
-                        $query->quote($queryParameters['localTable']) . ' AS _localTable',
-                        $query->quote($queryParameters['foreignTable']) . ' AS _foreignTable',
-                    )
-                    ->where(
-                        $expr->and(
-                            $expr->gt('exl.targetuid', 0),
-                            $expr->gt('exr.targetuid', 0),
-                            $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
-                            $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
-                            ...\array_map(
-                                fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
-                                \array_keys($queryParameters['matchFields']),
-                                $queryParameters['matchFields'],
-                            ),
+            $queries = \array_map(fn(array $queryParameters) => (clone $query)
+                ->addSelectLiteral(
+                    $query->quote($queryParameters['localTable']) . ' AS _local_table',
+                    $query->quote($queryParameters['foreignTable']) . ' AS _foreign_table',
+                )
+                ->where(
+                    $expr->and(
+                        $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
+                        $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
+                        ...\array_map(
+                            fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
+                            \array_keys($queryParameters['matchFields']),
+                            $queryParameters['matchFields'],
                         ),
-                    );
-            }, $mmQueryParameters);
+                    ),
+                ), $mmQueryParameters);
 
             $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
 
             $result = $this->connection->executeQuery($sql);
             foreach ($result->iterateAssociative() as $row) {
-                yield $mmTableName => $row;
+
+                $keyParts = [
+                    $mmTableName,
+                    $row['uid_local'],
+                    $row['uid_foreign'],
+                    $row['tablenames'] ?? null,
+                    $row['fieldname'] ?? null,
+                ];
+
+                yield implode(':', array_filter($keyParts)) => $row;
             }
             $result->free();
         }
@@ -194,7 +205,7 @@ class ExportIndex
     {
         try {
             $this->schemaService->dropTable($this->connection, $this->indexTableName);
-        } catch (\Exception $th) {
+        } catch (\Exception) {
         }
     }
 }

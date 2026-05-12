@@ -10,9 +10,12 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
+use Toujou\DatabaseTransfer\Database\FastImportConnection;
 use Toujou\DatabaseTransfer\Export\SelectionFactory;
 use Toujou\DatabaseTransfer\Service\TransferService;
 use TYPO3\CMS\Core\Core\Bootstrap;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 #[AsCommand(
     name: 'database:transfer',
@@ -23,6 +26,7 @@ class TransferCommand extends Command
     public function __construct(
         private SelectionFactory $selectionFactory,
         private TransferService $transferService,
+        private ConnectionPool $connectionPool,
     ) {
         parent::__construct();
     }
@@ -35,6 +39,12 @@ class TransferCommand extends Command
                 'dsn',
                 InputArgument::REQUIRED,
                 'The target database connection string',
+            )
+            ->addOption(
+                'all',
+                null,
+                InputOption::VALUE_NONE,
+                'Export all pages',
             )
             ->addOption(
                 'site',
@@ -60,6 +70,11 @@ class TransferCommand extends Command
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
                 'Exclude all records of this table. Examples: "tt_content", "sys_file_reference", etc.',
+                [
+                    'tx_migrations_domain_model_migrationstatus',
+                    'tx_yoastseo_prominent_word',
+                    'tx_sentmail_mail',
+                ],
             )
             ->addOption(
                 'include-record',
@@ -85,6 +100,18 @@ class TransferCommand extends Command
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
                 'Include record relations to this table, excluding the related record. Examples: "ALL", "be_users", etc.',
+            )
+            ->addOption(
+                'import-source',
+                null,
+                InputOption::VALUE_OPTIONAL,
+                'Identifier of the data source (e.g. "default", "main" ) used to distinguish imports and determine update behavior. Default: Database name (of "Default" connection)',
+            )
+            ->addOption(
+                'delta-update',
+                null,
+                InputOption::VALUE_NONE,
+                'Only update records that have changed by comparing their timestamps (if available).',
             );
     }
 
@@ -92,17 +119,50 @@ class TransferCommand extends Command
     {
         Bootstrap::initializeBackendAuthentication();
 
+        $startTime = microtime(true);
+
+        $symfonyStyle = new SymfonyStyle($input, $output);
+
         $options = $input->getOptions();
+
+        $all = $input->getOption('all');
+        $site = $input->getOption('site');
+        $pid  = $input->getOption('pid');
+        $importSourceName = $input->getOption('import-source') ?? $this->connectionPool->getConnectionByName('Default')->getDatabase();
+
+        if ($all && ($site || $pid)) {
+            $symfonyStyle->error('You cannot combine --all with --site or --pid');
+            return Command::FAILURE;
+        }
+
+        if (!$all && !$site && empty($pid)) {
+            $symfonyStyle->error('You must use --all, --site, or --pid');
+            return Command::FAILURE;
+        }
+
         $selection = $this->selectionFactory->buildFromCommandOptions($options);
 
         $connectionName = uniqid('', false);
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = [
             'url' => $input->getArgument('dsn'),
             'driver' => '',
-            'wrapperClass' => \Toujou\DatabaseTransfer\Database\FastImportConnection::class,
+            'wrapperClass' => FastImportConnection::class,
         ];
 
-        $this->transferService->transfer($selection, $connectionName);
+        $this->transferService->transfer($selection, $connectionName, $importSourceName, (bool)$input->getOption('delta-update'));
+
+        if ($symfonyStyle->isVerbose()) {
+            $memory = memory_get_usage(true) / 1024 / 1024;
+            $peak = memory_get_peak_usage(true) / 1024 / 1024;
+            $elapsed = microtime(true) - $startTime;
+
+            $symfonyStyle->writeln(sprintf(
+                '<info>Profiling</info> | Current: %.2f MB | Peak: %.2f MB | %.3fs (total)',
+                $memory,
+                $peak,
+                $elapsed,
+            ));
+        }
 
         return Command::SUCCESS;
     }

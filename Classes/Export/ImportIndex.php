@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Export;
 
+use Toujou\DatabaseTransfer\DTO\MmTableRecordChangeSet;
+use Toujou\DatabaseTransfer\DTO\RecordAction;
+use Toujou\DatabaseTransfer\DTO\RecordChangeSet;
+use Toujou\DatabaseTransfer\DTO\Relation;
+use Toujou\DatabaseTransfer\DTO\RelationTranslation;
 use Toujou\DatabaseTransfer\Service\SchemaService;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
@@ -11,32 +16,37 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 
 class ImportIndex
 {
-    private array $index = [];
+    /**
+     * @var array<string, array<int, int>>
+     *
+     * Maps a table name to a map of source UIDs to target UIDs.
+     *
+     * Structure:
+     * [
+     *     'table_name' => [
+     *         sourceUid (int) => targetUid (int),
+     *     ],
+     * ]
+     */
+    private ?array $mapping = null;
 
     private string $importIndexTableName;
 
-    private ?string $exportIndexTableName = null;
+    private string $exportIndexTableName;
 
     public function __construct(
         private readonly Connection $connection,
         private readonly SchemaService $schemaService,
-        string $transferName,
+        string $importSourceName,
     ) {
-        $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $transferName);
-        $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $transferName);
+        $this->importIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'import', $importSourceName);
+        $this->exportIndexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $importSourceName);
     }
 
-    public function getConnection(): Connection
-    {
-        return $this->connection;
-    }
-
-    public function compare(ExportIndex $exportIndex): array
+    public function compare(ExportIndex $exportIndex, bool $isDeltaUpdate = false): RecordChangeSet
     {
         $this->schemaService->emptyTable($this->connection, $this->exportIndexTableName);
-        foreach ($exportIndex->getIndex() as $row) {
-            $this->connection->insert($this->exportIndexTableName, $row);
-        }
+        $this->copySourceExportTableData($exportIndex);
 
         $query = $this->connection->createQueryBuilder();
         $query->select(
@@ -48,65 +58,67 @@ class ImportIndex
             'ex.sourceuid AS ex_sourceuid',
             'ex.type AS ex_type',
             'ex.targetuid AS ex_targetuid',
+            'ex.updated_at AS updated_at',
         );
-
         $queries = [
-            (clone $query) // existing
+            (clone $query) // recordsToUpdate
                 ->from($this->importIndexTableName, 'im')
-                ->innerJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.targetuid'),
-            (clone $query) // unknown
+                ->innerJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
+                ->where($isDeltaUpdate ? 'ex.updated_at IS NULL OR (ex.updated_at != im.updated_at)' : '1'),
+
+            (clone $query) // recordsToCreate
                 ->from($this->exportIndexTableName, 'ex')
-                ->leftJoin('ex', $this->importIndexTableName, 'im', 'ex.tablename = im.tablename AND ex.sourceuid = im.targetuid')
+                ->leftJoin('ex', $this->importIndexTableName, 'im', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
                 ->where('im.sourceuid IS NULL'),
-            (clone $query) // missing
+            (clone $query) // recordsToDelete
                 ->from($this->importIndexTableName, 'im')
-                ->leftJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.targetuid')
+                ->leftJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
                 ->where('ex.sourceuid IS NULL'),
         ];
         $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
         $result = $this->connection->executeQuery($sql);
 
-        $unknown = [];
-        $existing = [];
-        $missing = [];
+        $rows = $result->fetchAllAssociative();
 
-        foreach ($result->iterateAssociative() as $row) {
-            if (isset($row['im_sourceuid'], $row['ex_sourceuid'])) {
-                $existing[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
-                    'tablename' => $row['im_tablename'],
-                    'sourceuid' => (int)$row['im_sourceuid'],
-                    'type' => $row['im_type'],
-                    'targetuid' => (int)$row['im_targetuid'],
-                ];
-            } elseif (isset($row['ex_sourceuid'])) {
-                $unknown[$row['ex_tablename'] . '_' . $row['ex_sourceuid']] = [
-                    'tablename' => $row['ex_tablename'],
-                    'sourceuid' => (int)$row['ex_sourceuid'],
-                    'type' => $row['ex_type'],
-                    'targetuid' => (int)$row['ex_targetuid'],
-                ];
-            } elseif (isset($row['im_sourceuid'])) {
-                $unknown[$row['im_tablename'] . '_' . $row['im_sourceuid']] = [
-                    'tablename' => $row['im_tablename'],
-                    'sourceuid' => (int)$row['im_sourceuid'],
-                    'type' => $row['im_type'],
-                    'targetuid' => (int)$row['im_targetuid'],
-                ];
-            } else {
-                throw new \UnexpectedValueException('Export index to import index comparison returned an unexpected row.', 1741349615);
-            }
-        }
+        $items = array_map(fn(array $row) => RecordAction::fromArray(
+            [
+                'tablename' => $row['im_tablename'] ?: $row['ex_tablename'],
+                'sourceuid' => $row['ex_sourceuid'],
+                'type' => $row['im_type'] ?: $row['ex_type'],
+                'targetuid' => $row['im_targetuid'] ?? 0,
+                'updated_at' => $row['updated_at'],
+            ],
+        ), $rows);
+
+        $comparisonResult = RecordChangeSet::create($items);
+
         $result->free();
 
-        return [$unknown, $existing, $missing];
+        return $comparisonResult;
     }
 
     public function translateUid(string $tableName, int $sourceUid): ?int
     {
-        return $this->index[$tableName][$sourceUid]['targetuid'] ?? null;
+        if ($this->mapping === null) {
+            $result = $this->connection->createQueryBuilder()
+                ->select('tablename', 'sourceuid', 'targetuid')
+                ->from($this->importIndexTableName)
+                ->executeQuery();
+
+            while ($row = $result->fetchAssociative()) {
+                $this->mapping[$row['tablename']][(int)$row['sourceuid']] = (int)$row['targetuid'];
+            }
+
+            $result->free();
+        }
+
+        return $this->mapping[$tableName][$sourceUid] ?? null;
     }
 
-    public function translateRelation(array $relation): array
+    /**
+     * @param mixed[] $relation*
+     */
+    public function translateRelation(array $relation): RelationTranslation
     {
         $original = $translated = $relation;
         $translated['recuid'] = $this->translateUid($translated['tablename'], $translated['recuid']);
@@ -118,10 +130,13 @@ class ImportIndex
         if ($translated['recuid'] === null || ($translated['ref_table'] !== '_STRING' && $translated['ref_uid'] === null)) {
             $translated = null;
         } else {
-            $translated['hash'] = $this->calulateReferenceIndexRelationHash($translated);
+            $translated['hash'] = $this->calculateReferenceIndexRelationHash($translated);
         }
 
-        return ['original' => $original, 'translated' => $translated];
+        return RelationTranslation::create(
+            Relation::fromArray($original),
+            is_array($translated) ? Relation::fromArray($translated) : null,
+        );
     }
 
     public function getMMRecords(ExportIndex $exportIndex): \Generator
@@ -144,21 +159,27 @@ class ImportIndex
                 (string)$expr->eq('exr.targetuid', 'mm.uid_foreign'),
             );
 
-            $query->where($expr->or(...\array_map(function (array $queryParameters) use ($query, $expr) {
-                return $expr->and(
-                    $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
-                    $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
-                    ...\array_map(
-                        fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
-                        \array_keys($queryParameters['matchFields']),
-                        $queryParameters['matchFields'],
-                    ),
-                );
-            }, $mmQueryParameters)));
+            $query->where($expr->or(...\array_map(fn(array $queryParameters) => $expr->and(
+                $expr->eq('exl.tablename', $query->quote($queryParameters['localTable'])),
+                $expr->eq('exr.tablename', $query->quote($queryParameters['foreignTable'])),
+                ...\array_map(
+                    fn(string $columnName, string $matchValue) => $expr->eq('mm.' . $columnName, $query->quote($matchValue)),
+                    \array_keys($queryParameters['matchFields']),
+                    $queryParameters['matchFields'],
+                ),
+            ), $mmQueryParameters)));
 
             $result = $query->executeQuery();
             foreach ($result->iterateAssociative() as $row) {
-                yield $mmTableName => $row;
+                $keyParts = [
+                    $mmTableName,
+                    $row['uid_local'],
+                    $row['uid_foreign'],
+                    $row['tablenames'] ?? null,
+                    $row['fieldname'] ?? null,
+                ];
+
+                yield implode(':', array_filter($keyParts)) => $row;
             }
             $result->free();
         }
@@ -166,31 +187,24 @@ class ImportIndex
 
     public function removeFromIndex(string $tableName, int $sourceUid): void
     {
-        unset($this->index[$tableName][$sourceUid]);
         $this->connection->delete($this->importIndexTableName, [
             'tablename' => $tableName,
             'sourceuid' => $sourceUid,
         ]);
     }
 
-    public function addToIndex(string $tableName, int $sourceUid, string $type, int $targetUid = null): array
+    public function addToIndex(RecordAction $record, int $targetUid): void
     {
-        $this->index[$tableName][$sourceUid] = [
-            'type' => $type,
+        $this->connection->insert($this->importIndexTableName, [
+            ...$record->toArray(),
             'targetuid' => $targetUid,
-        ];
-        $record = [
-            'tablename' => $tableName,
-            'sourceuid' => $sourceUid,
-            'type' => $type,
-            'targetuid' => $targetUid,
-        ];
-        $this->connection->insert($this->importIndexTableName, $record);
-
-        return $record;
+        ]);
     }
 
-    private function calulateReferenceIndexRelationHash(array $relation): string
+    /**
+     * @param mixed[] $relation
+     */
+    private function calculateReferenceIndexRelationHash(array $relation): string
     {
         // @see \TYPO3\CMS\Core\Database\ReferenceIndex::createEntryDataUsingRecord
         $hashMap = [
@@ -206,15 +220,73 @@ class ImportIndex
             'ref_uid' => $relation['ref_uid'] ?? '',
             'ref_string' => $relation['ref_string'] ?? '',
         ];
+
         // @see \TYPO3\CMS\Core\Database\ReferenceIndex::updateRefIndexTable:221
         return md5(implode('///', $hashMap) . '///1');
+    }
+
+    private function copySourceExportTableData(ExportIndex $exportIndex, int $chunkSize = 500): void
+    {
+        $buffer = [];
+
+        foreach ($exportIndex->getIndex() as $row) {
+            $buffer[] = $row;
+            if (count($buffer) === $chunkSize) {
+                $this->connection->bulkInsert($this->exportIndexTableName, $buffer, array_keys($buffer[0]));
+                $buffer = [];
+            }
+        }
+        if ($buffer) {
+            $this->connection->bulkInsert($this->exportIndexTableName, $buffer, array_keys($buffer[0]));
+        }
+    }
+
+    public function updateUpdatedAtTimestamp(RecordAction $row): void
+    {
+        $this->connection->update(
+            $this->importIndexTableName,
+            [
+                'updated_at' => $row->updatedAt,
+            ],
+            [
+                'tablename' => $row->tableName,
+                'sourceuid' => $row->sourceUid,
+            ],
+        );
     }
 
     public function __destruct()
     {
         try {
             $this->schemaService->dropTable($this->connection, $this->exportIndexTableName);
-        } catch (\Exception $th) {
+        } catch (\Exception) {
         }
+    }
+
+    public function compareMmTableRecords(ExportIndex $exportIndex): MmTableRecordChangeSet
+    {
+        $currentMmTableRecords = iterator_to_array($this->getMMRecords($exportIndex));
+        $exportMmTableRecords = [];
+
+        foreach ($exportIndex->getMmRecords() as $combinedKey => $row) {
+            [$table] = explode(':', $combinedKey);
+            $localTable = $row['_local_table'];
+            $foreignTable = $row['_foreign_table'];
+            unset($row['_local_table'], $row['_foreign_table']);
+            $row['uid_local'] = $this->translateUid($localTable, $row['uid_local']);
+            $row['uid_foreign'] = $this->translateUid($foreignTable, $row['uid_foreign']);
+
+            $keyParts = [
+                $table,
+                $row['uid_local'],
+                $row['uid_foreign'],
+                $row['tablenames'] ?? null,
+                $row['fieldname'] ?? null,
+            ];
+
+            $exportMmTableRecords[implode(':', array_filter($keyParts))] = $row;
+        }
+
+        return MmTableRecordChangeSet::create($currentMmTableRecords, $exportMmTableRecords);
     }
 }

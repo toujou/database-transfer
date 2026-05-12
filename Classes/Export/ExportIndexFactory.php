@@ -7,6 +7,9 @@ namespace Toujou\DatabaseTransfer\Export;
 use Toujou\DatabaseTransfer\Service\SchemaService;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
+use TYPO3\CMS\Core\Schema\Capability\LanguageAwareSchemaCapability;
+use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
+use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 
 /**
  * This class encapsulates all the TCA specific logic
@@ -18,12 +21,13 @@ class ExportIndexFactory
     public function __construct(
         private readonly ConnectionPool $connectionPool,
         private readonly SchemaService $schemaService,
+        private readonly TcaSchemaFactory $tcaSchemaFactory,
     ) {}
 
-    public function createExportIndex(Selection $selection, string $transferName): ExportIndex
+    public function createExportIndex(Selection $selection, string $importSourceName): ExportIndex
     {
         $connection = $this->connectionPool->getConnectionForTable(self::TABLENAME_REFERENCE_INDEX);
-        $exportIndex = new ExportIndex($connection, $this->schemaService, $transferName);
+        $exportIndex = new ExportIndex($connection, $this->schemaService, $importSourceName);
 
         $this->addDirectlySelectedRecords($selection, $exportIndex);
         $this->addRelatedRecords($selection, $exportIndex);
@@ -32,9 +36,16 @@ class ExportIndexFactory
         return $exportIndex;
     }
 
+    /**
+     * @param string[] $tableNames
+     * @param int[] $selectedPageIds
+     * @param string[] $staticTableNames
+     * @param array<string, int[]> $excludedRecords
+     */
     private function generateRecordQueriesForSelection(array $tableNames, array $selectedPageIds, array $staticTableNames = [], array $excludedRecords = []): \Generator
     {
         foreach ($tableNames as $tableName) {
+            $schema = $this->tcaSchemaFactory->get($tableName);
             $queryBuilder = $this->connectionPool->getQueryBuilderForTable($tableName);
             $expr = $queryBuilder->expr();
 
@@ -45,8 +56,8 @@ class ExportIndexFactory
                 $queryBuilder->select('uid', '*');
                 $queryBuilder->where(match (true) {
                     $tableName === 'pages' => $expr->in('uid', $selectedPageIds),
-                    $tableName === 'sys_file' => $expr->in('pid', 0),
-                    $tableName === 'sys_file_metadata' => $expr->in('pid', 0),
+                    $tableName === 'sys_file' => $expr->in('pid', [0]),
+                    $tableName === 'sys_file_metadata' => $expr->in('pid', [0]),
                     default => $expr->in('pid', $selectedPageIds),
                 });
             }
@@ -54,9 +65,11 @@ class ExportIndexFactory
             if (!empty($excludedRecords[$tableName])) {
                 $queryBuilder->andWhere($expr->notIn('uid', $excludedRecords[$tableName]));
             }
-
-            if (isset($GLOBALS['TCA'][$tableName]['ctrl']['languageField'])) {
-                $queryBuilder->andWhere($expr->eq($GLOBALS['TCA'][$tableName]['ctrl']['languageField'], 0));
+            if ($schema->isLanguageAware()) {
+                /** @var LanguageAwareSchemaCapability $languageCapability */
+                $languageCapability = $schema->getCapability(TcaSchemaCapability::Language);
+                $languageField = $languageCapability->getLanguageField()->getName();
+                $queryBuilder->andWhere($expr->in($languageField, [-1, 0]));
             }
 
             yield $tableName => $queryBuilder;
@@ -77,7 +90,22 @@ class ExportIndexFactory
                 $selection->getExcludedRecords(),
             ) as $tableName => $query) {
                 $expr = $query->expr();
-                $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type');
+
+                $schema = $this->tcaSchemaFactory->get($tableName);
+
+                $selectLiterals = [
+                    $query->quote($tableName) . ' AS tablename',
+                    'uid AS sourceuid',
+                    (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type',
+                ];
+
+                if ($schema->hasCapability(TcaSchemaCapability::UpdatedAt)) {
+                    $selectLiterals[] = $schema->getCapability(TcaSchemaCapability::UpdatedAt)->getFieldName() . ' AS updated_at';
+                } else {
+                    $selectLiterals[] = 'NULL AS updated_at';
+                }
+
+                $query->selectLiteral(...$selectLiterals);
 
                 // TODO replace this with RelationAnalyzer as
                 // this doesn't cater for backwards pointing relations like sys_category_record_mm
@@ -119,7 +147,21 @@ class ExportIndexFactory
             [],
             $selection->getExcludedRecords(),
         ) as $tableName => $query) {
-            $query->selectLiteral($query->quote($tableName) . ' AS tablename', 'uid AS sourceuid', $query->quote('included') . ' AS type');
+            $schema = $this->tcaSchemaFactory->get($tableName);
+
+            $selectLiterals = [
+                $query->quote($tableName) . ' AS tablename',
+                'uid AS sourceuid',
+                $query->quote('included') . ' AS type',
+            ];
+
+            if ($schema->hasCapability(TcaSchemaCapability::UpdatedAt)) {
+                $selectLiterals[] = $schema->getCapability(TcaSchemaCapability::UpdatedAt)->getFieldName() . ' AS updated_at';
+            } else {
+                $selectLiterals[] = 'NULL AS updated_at';
+            }
+
+            $query->selectLiteral(...$selectLiterals);
             $exportIndex->addRecordsToIndexFromQuery($query);
         }
     }
@@ -143,6 +185,10 @@ class ExportIndexFactory
         }
     }
 
+    /**
+     * @param mixed[] $columnConfig
+     * @param mixed[] $relation
+     */
     private function addMmRelationsForColumn(ExportIndex $exportIndex, array $columnConfig, array $relation): void
     {
         if (!isset($columnConfig['MM'])) {

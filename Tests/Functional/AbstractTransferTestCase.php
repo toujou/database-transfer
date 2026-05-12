@@ -35,10 +35,10 @@ abstract class AbstractTransferTestCase extends FunctionalTestCase
         return $connectionName;
     }
 
-    protected function renameImportIndexToWellKnownTableName(Connection $targetConnection, string $targetConnectionName): void
+    protected function renameImportIndexToWellKnownTableName(Connection $targetConnection, string $importSourceName = 'default'): void
     {
         $schemaService = $this->get(SchemaService::class);
-        $schemaService->renameTable($targetConnection, 'sys_databasetransfer_import', $schemaService->getIndexTableName('import', $targetConnectionName));
+        $schemaService->renameTable($targetConnection, 'sys_databasetransfer_import', $schemaService->getIndexTableName('import', $importSourceName));
     }
 
     protected function tearDown(): void

@@ -23,16 +23,16 @@ class SchemaService
         private readonly SchemaParser $schemaParser,
     ) {}
 
-    public function getIndexTableName(string $type, string $transferName)
+    public function getIndexTableName(string $type, string $importSourceName): string
     {
-        return "sys_databasetransfer_{$type}_{$transferName}";
+        return "sys_databasetransfer_{$type}_{$importSourceName}";
     }
 
-    public function establishIndexTable(Connection $targetDatabase, string $type, string $transferName): string
+    public function establishIndexTable(Connection $targetDatabase, string $type, string $importSourceName): string
     {
         $schemaManager = $targetDatabase->createSchemaManager();
         $schemaConfig = $schemaManager->createSchemaConfig();
-        $transferIndexTableName = $this->getIndexTableName($type, $transferName);
+        $transferIndexTableName = $this->getIndexTableName($type, $importSourceName);
         if ($schemaManager->tablesExist([$transferIndexTableName])) {
             return $transferIndexTableName;
         }
@@ -41,6 +41,7 @@ class SchemaService
             [
                 new Column('tablename', new StringType(), ['length' => $schemaConfig->getMaxIdentifierLength(), 'notnull' => true]),
                 new Column('sourceuid', new IntegerType(), ['notnull' => true]),
+                new Column('updated_at', new IntegerType(), ['notnull' => false]),
                 new Column('type', new StringType(), ['length' => 8, 'notnull' => true]),
                 new Column('targetuid', new IntegerType(), ['default' => null, 'notnull' => false]),
             ],
@@ -74,6 +75,9 @@ class SchemaService
         $schemaManager->renameTable($oldTableName, $tableName);
     }
 
+    /**
+     * @param string[] $tableNames
+     */
     public function establishSchemaOfTables(Connection $targetDatabase, array $tableNames): void
     {
         $sqlReader = GeneralUtility::makeInstance(SqlReader::class);
@@ -85,7 +89,14 @@ class SchemaService
         ConnectionMigrator::create(ConnectionPool::DEFAULT_CONNECTION_NAME, $targetDatabase, $tables)->install();
     }
 
-    public function getTableColumnMeta(Connection $connection, array $tableNames)
+    /**
+     * @param string[] $tableNames
+     *
+     * @return mixed[]
+     *
+     * @throws \Doctrine\DBAL\Exception
+     */
+    public function getTableColumnMeta(Connection $connection, array $tableNames): array
     {
         $schemaManager = $connection->createSchemaManager();
         $tableColumnMeta = [];

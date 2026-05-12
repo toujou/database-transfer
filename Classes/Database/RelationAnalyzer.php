@@ -16,10 +16,12 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class RelationAnalyzer
 {
+    /** @var callable[] */
     private array $relationsQueryCache = [];
 
     private readonly TcaSchemaFactory $schemaFactory;
 
+    /** @var PassiveRelation[][] */
     private readonly array $backwardsPointingRelations;
 
     public function __construct(
@@ -30,6 +32,9 @@ class RelationAnalyzer
         $this->backwardsPointingRelations = $this->buildBackwardsPointingRelations();
     }
 
+    /**
+     * @return PassiveRelation[][]
+     */
     private function buildBackwardsPointingRelations(): array
     {
         $backwardsPointingRelations = [];
@@ -38,15 +43,20 @@ class RelationAnalyzer
             $schema = $this->schemaFactory->get($tableName);
             // We only take care of foreign fields, as all other relations are already covered by the forward pointing relations
             $foreignFieldFields = $schema->getFields(fn(FieldTypeInterface $field) => $field instanceof RelationalFieldTypeInterface && $field->getRelationshipType() === RelationshipType::OneToMany);
+            /** @var RelationalFieldTypeInterface|FieldTypeInterface $foreignFieldField */
             foreach ($foreignFieldFields as $foreignFieldField) {
                 foreach ($foreignFieldField->getRelations() as $relation) {
                     $backwardsPointingRelations[$relation->toTable()][] = new PassiveRelation($tableName, $foreignFieldField->getName(), null);
                 }
             }
         }
+
         return $backwardsPointingRelations;
     }
 
+    /**
+     * @return mixed[]
+     */
     public function getRelationsForRecord(string $tableName, int $uid): array
     {
         if (isset($this->relationsQueryCache[$tableName])) {
