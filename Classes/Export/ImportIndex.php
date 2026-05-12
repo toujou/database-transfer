@@ -185,11 +185,11 @@ class ImportIndex
         }
     }
 
-    public function removeFromIndex(string $tableName, int $sourceUid): void
+    public function removeFromIndex(string $tableName, int $targetUid): void
     {
         $this->connection->delete($this->importIndexTableName, [
             'tablename' => $tableName,
-            'sourceuid' => $sourceUid,
+            'targetuid' => $targetUid,
         ]);
     }
 
