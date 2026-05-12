@@ -32,7 +32,7 @@ class ImportIndex
 
     private string $importIndexTableName;
 
-    private ?string $exportIndexTableName;
+    private string $exportIndexTableName;
 
     public function __construct(
         private readonly Connection $connection,
