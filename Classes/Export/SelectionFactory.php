@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Export;
 
-use TYPO3\CMS\Core\Domain\Repository\PageRepository;
-use TYPO3\CMS\Core\Site\Entity\Site;
-use TYPO3\CMS\Core\Site\SiteFinder;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 class SelectionFactory
 {
@@ -15,8 +14,7 @@ class SelectionFactory
     public const DEPTH_MAX = 100;
 
     public function __construct(
-        private readonly SiteFinder $siteFinder,
-        private readonly PageRepository $pageRepository,
+        private readonly ConnectionPool $connectionPool
     ) {}
 
     /**
@@ -26,17 +24,8 @@ class SelectionFactory
     {
         $excludedRecords = $this->getExcludedRecords($options['exclude-record'] ?? []);
 
-        $site = $options['site'] ?? null;
-        $pages = $options['pid'] ?? [];
-
-        if ($options['all'] ?? null) {
-            $pages = [
-                0,
-                ...array_map(fn(Site $site) => $site->getRootPageId(), $this->siteFinder->getAllSites()),
-            ];
-        }
-
-        $pageIds = $this->getPageIds($site, $pages ?? [], $excludedRecords['pages'] ?? []);
+        $pages = $options['all'] ?? false ? [0] : ($options['pid'] ?? []);
+        $pageIds = $this->getPageIds( $pages ?? [], $excludedRecords['pages'] ?? []);
         $includesRootLevel = \in_array(0, $pageIds);
         $selectedTables = $this->getTableSelection($options['include-table'] ?? [], $options['exclude-table'] ?? [], $includesRootLevel);
         $relatedTables = $this->getTableSelection($options['include-related'] ?? [], \array_merge($options['exclude-table'] ?? [], $options['include-static'] ?? []));
@@ -53,33 +42,75 @@ class SelectionFactory
      *
      * @throws \TYPO3\CMS\Core\Exception\SiteNotFoundException
      */
-    private function getPageIds(string $siteIdentifier = null, array $pid = [], array $excludedPageIds = []): array
+    private function getPageIds(array $pid = [], array $excludedPageIds = []): array
     {
         $rootPageIds = [];
-
-        if ($siteIdentifier !== null) {
-            $rootPageIds[] = [$this->siteFinder->getSiteByIdentifier($siteIdentifier)->getRootPageId(), self::DEPTH_MAX];
-        }
 
         foreach ($pid as $pageId) {
             [$pageId, $depth] = explode(':', (string)$pageId) + [null, self::DEPTH_MAX];
             $pageId = (int)$pageId;
             $depth = (int)$depth;
-            if ($pageId === 0 || (!in_array($pageId, $excludedPageIds) && $this->pageRepository->getPage_noCheck($pageId))) {
+            if ($pageId === 0 || !in_array($pageId, $excludedPageIds)) {
                 $rootPageIds[] = [$pageId, $depth];
             }
         }
 
         $pageIds = [];
+
         foreach ($rootPageIds as [$pageId, $depth]) {
-            $pageIds = \array_merge(
-                $pageIds,
-                [$pageId],
-                $this->pageRepository->getDescendantPageIdsRecursive($pageId, $depth, 0, $excludedPageIds, true),
+            $pageIds[] = $pageId;
+
+            $connection = $this->connectionPool->getConnectionForTable('pages');
+
+            $pageUidsQuery = <<<SQL
+                WITH RECURSIVE page_tree AS (
+                    -- base case
+                    SELECT
+                        uid,
+                        pid,
+                        0 AS depth
+                    FROM pages
+                    WHERE pid = :root_id
+                    AND deleted = 0
+                    AND sys_language_uid = 0
+                    AND uid NOT IN (:excludePageIds)
+
+                    UNION ALL
+
+                    -- recursive step
+                    SELECT
+                        p.uid,
+                        p.pid,
+                        pt.depth + 1
+                    FROM pages p
+                    INNER JOIN page_tree pt
+                        ON p.pid = pt.uid
+                    WHERE pt.depth < :max_depth
+                    AND deleted = 0
+                    AND sys_language_uid = 0
+                    AND p.uid NOT IN (:excludePageIds)
+                )
+
+                SELECT uid
+                FROM page_tree;
+SQL;
+            $subPageUids = $connection->fetchFirstColumn(
+                $pageUidsQuery,
+                [
+                    'root_id' => $pageId,
+                    'max_depth' => $depth,
+                    'excludePageIds' =>  $excludedPageIds ?: [-1]
+                ],
+                [
+                    'root_id' => Connection::PARAM_INT,
+                    'max_depth' => Connection::PARAM_INT,
+                    'excludePageIds' => Connection::PARAM_INT_ARRAY,
+                ]
             );
+            array_push($pageIds, ...$subPageUids);
         }
 
-        return \array_unique($pageIds);
+        return array_values(array_unique($pageIds));
     }
 
     /**

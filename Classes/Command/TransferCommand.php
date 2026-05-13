@@ -47,12 +47,6 @@ class TransferCommand extends Command
                 'Export all pages',
             )
             ->addOption(
-                'site',
-                null,
-                InputOption::VALUE_OPTIONAL,
-                'The identifier of the exported site.',
-            )
-            ->addOption(
                 'pid',
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
@@ -132,21 +126,14 @@ class TransferCommand extends Command
         $options = $input->getOptions();
 
         $all = $input->getOption('all');
-        $site = $input->getOption('site');
         $pid  = $input->getOption('pid');
         $importSourceName = $input->getOption('import-source') ?? $this->connectionPool->getConnectionByName('Default')->getDatabase();
 
-        if ($all && ($site || $pid)) {
-            $symfonyStyle->error('You cannot combine --all with --site or --pid');
+        if (!$all && empty($pid)) {
+            $symfonyStyle->error('You must use --all, or --pid');
             return Command::FAILURE;
         }
 
-        if (!$all && !$site && empty($pid)) {
-            $symfonyStyle->error('You must use --all, --site, or --pid');
-            return Command::FAILURE;
-        }
-
-        $selection = $this->selectionFactory->buildFromCommandOptions($options);
 
         $connectionName = uniqid('', false);
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = [
@@ -154,6 +141,7 @@ class TransferCommand extends Command
             'driver' => '',
             'wrapperClass' => FastImportConnection::class,
         ];
+        $selection = $this->selectionFactory->buildFromCommandOptions($options);
 
         $this->transferService->transfer(
             $selection,
