@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Service;
 
 use Psr\Log\LoggerInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Toujou\DatabaseTransfer\Database\RelationAnalyzer;
 use Toujou\DatabaseTransfer\Database\RelationEditor;
 use Toujou\DatabaseTransfer\DTO\MmTableRecordAction;
+use Toujou\DatabaseTransfer\DTO\RecordAction;
+use Toujou\DatabaseTransfer\DTO\RecordChangeSet;
 use Toujou\DatabaseTransfer\DTO\RelationTranslation;
 use Toujou\DatabaseTransfer\Export\ExportIndexFactory;
 use Toujou\DatabaseTransfer\Export\ImportIndexFactory;
@@ -26,8 +29,14 @@ readonly class TransferService
         private LoggerInterface $logger,
     ) {}
 
-    public function transfer(Selection $selection, string $transferName, string $importSourceName, bool $isDeltaUpdate = false): void
-    {
+    public function transfer(
+        Selection $selection,
+        string $transferName,
+        string $importSourceName,
+        bool $isDeltaUpdate = false,
+        bool $dryRun = false,
+        ?SymfonyStyle $io = null,
+    ): void {
         $targetDatabaseConnection = $this->connectionPool->getConnectionByName($transferName);
 
         $importIndex = $this->importIndexFactory->createImportIndex($targetDatabaseConnection, $importSourceName);
@@ -38,8 +47,13 @@ readonly class TransferService
         $tableColumnMetas = $this->schemaService->getTableColumnMeta($targetDatabaseConnection, $allTableNames);
 
         // This transaction leads to roughly 100x performance improvement on sqlite
-        $targetDatabaseConnection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas, $isDeltaUpdate) {
+        $targetDatabaseConnection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas, $isDeltaUpdate, $dryRun, $io) {
             $comparisonResult = $importIndex->compare($exportIndex, $isDeltaUpdate);
+            if ($dryRun) {
+                $this->outputComparisonResult($comparisonResult, $io);
+                return;
+            }
+
             foreach ($comparisonResult->getRecordsToCreate() as $item) {
                 // Insert placeholder to get target id
                 $this->insertRow($targetDatabase, $item->tableName, [], $tableColumnMetas[$item->tableName]);
@@ -133,5 +147,64 @@ readonly class TransferService
     private function deleteRow(Connection $targetDatabase, string $tableName, array $identifier): void
     {
         $targetDatabase->delete($tableName, $identifier);
+    }
+
+    private function outputComparisonResult(RecordChangeSet $comparisonResult, ?SymfonyStyle $io): void
+    {
+        if ($io === null) {
+            return;
+        }
+
+        $hasChanges = false;
+
+        if ($comparisonResult->getRecordsToCreate() !== []) {
+            $hasChanges = true;
+            $rows = array_map(fn(RecordAction $recordAction) => [
+                'INSERT',
+                $recordAction->tableName,
+                $recordAction->sourceUid ?? '-',
+            ], $comparisonResult->getRecordsToCreate());
+
+            $io->section(sprintf('New records (%d)', count($rows)));
+            $io->table(
+                ['Action', 'Table', 'Source-UID'],
+                $rows,
+            );
+
+        }
+        if ($comparisonResult->getRecordsToUpdate() !== []) {
+            $hasChanges = true;
+            $rows = array_map(fn(RecordAction $recordAction) => [
+                'UPDATE',
+                $recordAction->tableName,
+                $recordAction->sourceUid ?? '-',
+                $recordAction->targetUid ?? '-',
+            ], $comparisonResult->getRecordsToUpdate());
+
+            $io->section(sprintf('Update records (%d)', count($rows)));
+            $io->table(
+                ['Action', 'Table', 'Source-UID', 'Target-UID'],
+                $rows,
+            );
+        }
+
+        if ($comparisonResult->getRecordsToDelete() !== []) {
+            $hasChanges = true;
+            $rows = array_map(fn(RecordAction $recordAction) => [
+                'DELETE',
+                $recordAction->tableName,
+                $recordAction->targetUid ?? '-',
+            ], $comparisonResult->getRecordsToDelete());
+
+            $io->section(sprintf('Delete records (%d)', count($rows)));
+            $io->table(
+                ['Action', 'Table', 'Target-UID'],
+                $rows,
+            );
+        }
+
+        if (!$hasChanges) {
+            $io->success('Dry run completed: no changes detected.');
+        }
     }
 }

@@ -112,6 +112,12 @@ class TransferCommand extends Command
                 null,
                 InputOption::VALUE_NONE,
                 'Only update records that have changed by comparing their timestamps (if available).',
+            )
+            ->addOption(
+                'dry-run',
+                null,
+                InputOption::VALUE_NONE,
+                'Only update records that have changed by comparing their timestamps (if available).',
             );
     }
 
@@ -149,7 +155,14 @@ class TransferCommand extends Command
             'wrapperClass' => FastImportConnection::class,
         ];
 
-        $this->transferService->transfer($selection, $connectionName, $importSourceName, (bool)$input->getOption('delta-update'));
+        $this->transferService->transfer(
+            $selection,
+            $connectionName,
+            $importSourceName,
+            (bool)$input->getOption('delta-update'),
+            (bool)$input->getOption('dry-run'),
+            $symfonyStyle,
+        );
 
         if ($symfonyStyle->isVerbose()) {
             $memory = memory_get_usage(true) / 1024 / 1024;
