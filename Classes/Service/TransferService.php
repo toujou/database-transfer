@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Toujou\DatabaseTransfer\Service;
 
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Toujou\DatabaseTransfer\Database\RelationAnalyzer;
 use Toujou\DatabaseTransfer\Database\RelationEditor;
@@ -26,39 +25,42 @@ readonly class TransferService
         private ImportIndexFactory $importIndexFactory,
         private SchemaService $schemaService,
         private RelationEditor $relationEditor,
-        private LoggerInterface $logger,
     ) {}
 
     public function transfer(
         Selection $selection,
-        string $transferName,
+        string $sourceConnectionName,
         string $importSourceName,
         bool $isDeltaUpdate = false,
         bool $dryRun = false,
         ?SymfonyStyle $io = null,
     ): void {
-        $targetDatabaseConnection = $this->connectionPool->getConnectionByName($transferName);
+        // Connection of the export side
+        $sourceDatabaseConnection = $this->connectionPool->getConnectionByName($sourceConnectionName);
 
-        $importIndex = $this->importIndexFactory->createImportIndex($targetDatabaseConnection, $importSourceName);
-        $exportIndex = $this->exportIndexFactory->createExportIndex($selection, $importSourceName);
+        // Connection of the current instance (aka target of import)
+        $connection = $this->connectionPool->getConnectionForTable(ExportIndexFactory::TABLENAME_REFERENCE_INDEX);
+
+        $importIndex = $this->importIndexFactory->createImportIndex($connection, $importSourceName);
+        $exportIndex = $this->exportIndexFactory->createExportIndex($sourceDatabaseConnection, $importSourceName, $selection);
 
         $allTableNames = $exportIndex->getAllTableNames();
-        $this->schemaService->establishSchemaOfTables($targetDatabaseConnection, $allTableNames);
-        $tableColumnMetas = $this->schemaService->getTableColumnMeta($targetDatabaseConnection, $allTableNames);
+        $this->schemaService->establishSchemaOfTables($sourceDatabaseConnection, $allTableNames);
+        $tableColumnMetas = $this->schemaService->getTableColumnMeta($sourceDatabaseConnection, $allTableNames);
+
+        $comparisonResult = $importIndex->compare($exportIndex, $isDeltaUpdate);
+        if ($dryRun) {
+            $this->outputComparisonResult($comparisonResult, $io);
+            return;
+        }
 
         // This transaction leads to roughly 100x performance improvement on sqlite
-        $targetDatabaseConnection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas, $isDeltaUpdate, $dryRun, $io) {
-            $comparisonResult = $importIndex->compare($exportIndex, $isDeltaUpdate);
-            if ($dryRun) {
-                $this->outputComparisonResult($comparisonResult, $io);
-                return;
-            }
-
+        $connection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas, $comparisonResult) {
             foreach ($comparisonResult->getRecordsToCreate() as $item) {
                 // Insert placeholder to get target id
                 $this->insertRow($targetDatabase, $item->tableName, [], $tableColumnMetas[$item->tableName]);
                 $targetUid = (int)$targetDatabase->lastInsertId();
-                $importIndex->addToIndex($item, $targetUid);
+                $importIndex->addToIndex($targetDatabase, $item, $targetUid);
             }
 
             $mmComparisonResult = $importIndex->compareMmTableRecords($exportIndex);
@@ -78,7 +80,7 @@ readonly class TransferService
             // TODO replace by $importIndex->deleteRefindex
             foreach ($comparisonResult->getRecordsToUpdate() as $row) {
                 if ($row->updatedAt !== null) {
-                    $importIndex->updateUpdatedAtTimestamp($row);
+                    $importIndex->updateUpdatedAtTimestamp($targetDatabase, $row);
                 }
                 $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row->tableName, 'recuid' => $row->targetUid]);
             }
@@ -109,7 +111,7 @@ readonly class TransferService
             foreach ($comparisonResult->getRecordsToDelete() as $row) {
                 $this->deleteRow($targetDatabase, 'sys_refindex', ['tablename' => $row->tableName, 'recuid' => $row->targetUid]);
                 $this->deleteRow($targetDatabase, $row->tableName, ['uid' => $row->targetUid]);
-                $importIndex->removeFromIndex($row->tableName, (int)$row->targetUid);
+                $importIndex->removeFromIndex($targetDatabase, $row->tableName, (int)$row->targetUid);
             }
         });
     }
@@ -121,10 +123,15 @@ readonly class TransferService
     private function insertRow(Connection $targetDatabase, string $tableName, array $row, array $tableColumnMeta): void
     {
         $row = \array_replace($tableColumnMeta['defaults'], $row);
+
+        if (($row['uid'] ?? null) === null) {
+            unset($row['uid']);
+        }
+
         try {
             $targetDatabase->insert($tableName, $row, $tableColumnMeta['types']);
         } catch (\Exception $e) {
-            $this->logger->debug($e->getMessage(), $row);
+            throw new \Exception(sprintf('Error on trying to insert %s on %s with meta %s', json_encode($row), $tableName, json_decode($tableColumnMeta['defaults'])), $e->getCode(), $e);
         }
     }
 

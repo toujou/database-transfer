@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Export;
 
 use Toujou\DatabaseTransfer\Service\SchemaService;
-use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Schema\Capability\LanguageAwareSchemaCapability;
 use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
@@ -19,14 +19,12 @@ class ExportIndexFactory
     public const TABLENAME_REFERENCE_INDEX = 'sys_refindex';
 
     public function __construct(
-        private readonly ConnectionPool $connectionPool,
         private readonly SchemaService $schemaService,
         private readonly TcaSchemaFactory $tcaSchemaFactory,
     ) {}
 
-    public function createExportIndex(Selection $selection, string $importSourceName): ExportIndex
+    public function createExportIndex(Connection $connection, string $importSourceName, Selection $selection): ExportIndex
     {
-        $connection = $this->connectionPool->getConnectionForTable(self::TABLENAME_REFERENCE_INDEX);
         $exportIndex = new ExportIndex($connection, $this->schemaService, $importSourceName);
 
         $this->addDirectlySelectedRecords($selection, $exportIndex);
@@ -42,11 +40,11 @@ class ExportIndexFactory
      * @param string[] $staticTableNames
      * @param array<string, int[]> $excludedRecords
      */
-    private function generateRecordQueriesForSelection(array $tableNames, array $selectedPageIds, array $staticTableNames = [], array $excludedRecords = []): \Generator
+    private function generateRecordQueriesForSelection(ExportIndex $exportIndex, array $tableNames, array $selectedPageIds, array $staticTableNames = [], array $excludedRecords = []): \Generator
     {
         foreach ($tableNames as $tableName) {
             $schema = $this->tcaSchemaFactory->get($tableName);
-            $queryBuilder = $this->connectionPool->getQueryBuilderForTable($tableName);
+            $queryBuilder = $exportIndex->getConnection()->createQueryBuilder();
             $expr = $queryBuilder->expr();
 
             $queryBuilder->getRestrictions()->removeAll()->add(new DeletedRestriction());
@@ -84,6 +82,7 @@ class ExportIndexFactory
         do {
             $recordsFound = 0;
             foreach ($this->generateRecordQueriesForSelection(
+                $exportIndex,
                 $relatedTables,
                 $selection->getSelectedPageIds(),
                 $selection->getStaticTables(),
@@ -142,6 +141,7 @@ class ExportIndexFactory
     private function addDirectlySelectedRecords(Selection $selection, ExportIndex $exportIndex): void
     {
         foreach ($this->generateRecordQueriesForSelection(
+            $exportIndex,
             $selection->getSelectedTables(),
             $selection->getSelectedPageIds(),
             [],

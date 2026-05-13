@@ -13,7 +13,7 @@
 ,1,1,pages,categories,0,0
 ,1,2,pages,categories,0,0
 ,2,2,pages,categories,0,1
-"sys_databasetransfer_import",,,,
+"sys_databasetransfer_import_source",,,,
 ,"tablename","sourceuid","type","targetuid"
 ,"pages",10,"included",1
 ,"pages",20,"included",2

@@ -6,7 +6,7 @@
 "tt_content",,,,,,,,,
 ,"uid","pid","deleted","hidden","t3ver_oid","CType","header","header_link","pi_flexform"
 ,1,1,0,0,0,text,Test content,"","<?xml version=""1.0"" encoding=""utf-8"" standalone=""yes"" ?><T3FlexForms><data><sheet index=""sDEF""><language index=""lDEF""><field index=""flexFormRelation""><value index=""vDEF"">1</value></field></language></sheet></data></T3FlexForms>"
-"sys_databasetransfer_import",,,
+"sys_databasetransfer_import_source",,,
 ,"tablename","sourceuid","type","targetuid"
 ,pages,10,included,1
 ,pages,20,included,2

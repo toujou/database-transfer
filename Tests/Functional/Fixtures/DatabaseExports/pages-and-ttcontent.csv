@@ -8,7 +8,7 @@
 ,1,1,"text","Test content",,0,0,0,128,0
 ,2,1,"text","Test content 2","file:40",0,0,0,256,0
 ,3,1,"text","Test content 3",,0,0,0,512,1
-"sys_databasetransfer_import",,,,
+"sys_databasetransfer_import_source",,,,
 ,"tablename","sourceuid","type","targetuid"
 ,"pages",10,"included",1
 ,"pages",20,"included",2
