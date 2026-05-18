@@ -111,7 +111,7 @@ class TransferCommand extends Command
                 'dry-run',
                 null,
                 InputOption::VALUE_NONE,
-                'Only update records that have changed by comparing their timestamps (if available).',
+                'Performs a dry run of the operation, calculating and outputting the changes without applying them to any records.',
             );
     }
 

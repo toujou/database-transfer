@@ -52,7 +52,7 @@ Options:
       --include-related[=INCLUDE-RELATED]  Include record relations to this table, including the related record. Examples: "ALL", "sys_category", etc. [default: ["ALL"]] (multiple values allowed)
       --include-static[=INCLUDE-STATIC]    Include record relations to this table, excluding the related record. Examples: "ALL", "be_users", etc. (multiple values allowed)
       --delta-update                       Only update records that have changed by comparing their timestamps (if available).
-      --dry-run                            Only update records that have changed by comparing their timestamps (if available).
+      --dry-run                            Performs a dry run of the operation, calculating and outputting the changes without applying them to any records.
   -h, --help                               Display help for the given command. When no command is given display help for the list command
   -q, --quiet                              Do not output any message
   -V, --version                            Display this application version
