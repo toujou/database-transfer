@@ -38,25 +38,25 @@ class TransferCommand extends Command
             ->addArgument(
                 'dsn',
                 InputArgument::REQUIRED,
-                'The target database connection string',
+                'The source database connection string (DSN) from which data will be imported. e.g. "mysqli://db:db@db:3306/main"',
+            )
+            ->addArgument(
+                'import-source-name',
+                InputArgument::REQUIRED,
+                'Identifier of the import source. This name is used across all imports to identify and group data from the same source system. '
+                . 'It also maintains the mapping between source and target records and influences update behavior. e.g. "main"',
             )
             ->addOption(
                 'all',
                 null,
                 InputOption::VALUE_NONE,
-                'Export all pages',
-            )
-            ->addOption(
-                'site',
-                null,
-                InputOption::VALUE_OPTIONAL,
-                'The identifier of the exported site.',
+                'Import all pages',
             )
             ->addOption(
                 'pid',
                 null,
                 InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
-                'The root pages of the exported page tree. Pattern is "{pid}:{level}"',
+                'Root pages of the source page tree to import. Format: "{pid}:{level}"',
             )
             ->addOption(
                 'include-table',
@@ -102,16 +102,16 @@ class TransferCommand extends Command
                 'Include record relations to this table, excluding the related record. Examples: "ALL", "be_users", etc.',
             )
             ->addOption(
-                'import-source',
-                null,
-                InputOption::VALUE_OPTIONAL,
-                'Identifier of the data source (e.g. "default", "main" ) used to distinguish imports and determine update behavior. Default: Database name (of "Default" connection)',
-            )
-            ->addOption(
                 'delta-update',
                 null,
                 InputOption::VALUE_NONE,
                 'Only update records that have changed by comparing their timestamps (if available).',
+            )
+            ->addOption(
+                'dry-run',
+                null,
+                InputOption::VALUE_NONE,
+                'Performs a dry run of the operation, calculating and outputting the changes without applying them to any records.',
             );
     }
 
@@ -126,30 +126,33 @@ class TransferCommand extends Command
         $options = $input->getOptions();
 
         $all = $input->getOption('all');
-        $site = $input->getOption('site');
         $pid  = $input->getOption('pid');
-        $importSourceName = $input->getOption('import-source') ?? $this->connectionPool->getConnectionByName('Default')->getDatabase();
+        $importSourceName = $input->getArgument('import-source-name');
 
-        if ($all && ($site || $pid)) {
-            $symfonyStyle->error('You cannot combine --all with --site or --pid');
+        if (!$all && empty($pid)) {
+            $symfonyStyle->error('You must use --all, or --pid');
             return Command::FAILURE;
         }
 
-        if (!$all && !$site && empty($pid)) {
-            $symfonyStyle->error('You must use --all, --site, or --pid');
-            return Command::FAILURE;
-        }
-
-        $selection = $this->selectionFactory->buildFromCommandOptions($options);
-
-        $connectionName = uniqid('', false);
-        $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = [
+        $sourceConnectionName = uniqid('', false);
+        $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$sourceConnectionName] = [
             'url' => $input->getArgument('dsn'),
             'driver' => '',
             'wrapperClass' => FastImportConnection::class,
         ];
+        $selection = $this->selectionFactory->buildFromCommandOptions(
+            $this->connectionPool->getConnectionByName($sourceConnectionName),
+            $options,
+        );
 
-        $this->transferService->transfer($selection, $connectionName, $importSourceName, (bool)$input->getOption('delta-update'));
+        $this->transferService->transfer(
+            $selection,
+            $sourceConnectionName,
+            $importSourceName,
+            (bool)$input->getOption('delta-update'),
+            (bool)$input->getOption('dry-run'),
+            $symfonyStyle,
+        );
 
         if ($symfonyStyle->isVerbose()) {
             $memory = memory_get_usage(true) / 1024 / 1024;

@@ -18,12 +18,7 @@ declare(strict_types=1);
 namespace Toujou\DatabaseTransfer\Tests\Functional\Export;
 
 use PHPUnit\Framework\Attributes\Test;
-use Toujou\DatabaseTransfer\Database\DatabaseContext;
-use Toujou\DatabaseTransfer\Export\SelectionFactory;
-use Toujou\DatabaseTransfer\Service\TransferService;
 use Toujou\DatabaseTransfer\Tests\Functional\AbstractTransferTestCase;
-use TYPO3\CMS\Core\Database\ReferenceIndex;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 final class PagesAndCategoriesTest extends AbstractTransferTestCase
 {
@@ -34,14 +29,11 @@ final class PagesAndCategoriesTest extends AbstractTransferTestCase
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/pages-categories.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_category.csv');
         $this->importCSVDataSet(__DIR__ . '/../Fixtures/DatabaseImports/sys_category_record_mm.csv');
-
-        GeneralUtility::makeInstance(ReferenceIndex::class)->updateIndex(false);
     }
 
     #[Test]
     public function exportPagesAndCategories(): void
     {
-        $targetConnectionName = $this->createSqliteConnection('export');
 
         $options = [
             'pid' => [10, 0],
@@ -49,30 +41,8 @@ final class PagesAndCategoriesTest extends AbstractTransferTestCase
             // TODO test sys_category only within include-related
             //'include-related' => []
         ];
-        $selectionFactory = $this->get(SelectionFactory::class);
-        $selection = $selectionFactory->buildFromCommandOptions($options);
+        $this->runTransfer($options);
 
-        $transferService = $this->get(TransferService::class);
-        $transferService->transfer($selection, $targetConnectionName, 'default');
-
-        $targetConnection = $this->getConnectionPool()->getConnectionByName($targetConnectionName);
-        $this->renameImportIndexToWellKnownTableName($targetConnection);
-
-        $databaseContext = new DatabaseContext(
-            $targetConnection,
-            $targetConnectionName,
-            [
-                'pages',
-                'sys_category',
-                'sys_category_record_mm',
-                'sys_databasetransfer_import',
-            ],
-        );
-
-        // tt_content:2 header_link field contains a reference to file:40 which is on the fallback storage and thus not part
-        // of the reference index. As header_link is a link field, this reference is NOT cleared during export.
-        $databaseContext->runWithinConnection(function () {
-            $this->assertCSVDataSet(__DIR__ . '/../Fixtures/DatabaseExports/pages-and-categories.csv');
-        });
+        $this->assertCSVDataSet(__DIR__ . '/../Fixtures/DatabaseExports/pages-and-categories.csv');
     }
 }

@@ -64,8 +64,7 @@ class ImportIndex
             (clone $query) // recordsToUpdate
                 ->from($this->importIndexTableName, 'im')
                 ->innerJoin('im', $this->exportIndexTableName, 'ex', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
-                ->where($isDeltaUpdate ? 'ex.updated_at IS NULL OR (ex.updated_at != im.updated_at)' : '1'),
-
+                ->where($isDeltaUpdate ? 'im.updated_at IS NULL OR (ex.updated_at != im.updated_at)' : 'TRUE'),
             (clone $query) // recordsToCreate
                 ->from($this->exportIndexTableName, 'ex')
                 ->leftJoin('ex', $this->importIndexTableName, 'im', 'ex.tablename = im.tablename AND ex.sourceuid = im.sourceuid')
@@ -76,6 +75,7 @@ class ImportIndex
                 ->where('ex.sourceuid IS NULL'),
         ];
         $sql = \implode(' UNION ', \array_map(fn(QueryBuilder $query) => $query->getSQL(), $queries));
+        $sql .= ' ORDER BY ex_sourceuid ASC'; // necessary for postgres tests
         $result = $this->connection->executeQuery($sql);
 
         $rows = $result->fetchAllAssociative();
@@ -185,17 +185,17 @@ class ImportIndex
         }
     }
 
-    public function removeFromIndex(string $tableName, int $sourceUid): void
+    public function removeFromIndex(Connection $connection, string $tableName, int $targetUid): void
     {
-        $this->connection->delete($this->importIndexTableName, [
+        $connection->delete($this->importIndexTableName, [
             'tablename' => $tableName,
-            'sourceuid' => $sourceUid,
+            'targetuid' => $targetUid,
         ]);
     }
 
-    public function addToIndex(RecordAction $record, int $targetUid): void
+    public function addToIndex(Connection $connection, RecordAction $record, int $targetUid): void
     {
-        $this->connection->insert($this->importIndexTableName, [
+        $connection->insert($this->importIndexTableName, [
             ...$record->toArray(),
             'targetuid' => $targetUid,
         ]);
@@ -241,9 +241,9 @@ class ImportIndex
         }
     }
 
-    public function updateUpdatedAtTimestamp(RecordAction $row): void
+    public function updateUpdatedAtTimestamp(Connection $connection, RecordAction $row): void
     {
-        $this->connection->update(
+        $connection->update(
             $this->importIndexTableName,
             [
                 'updated_at' => $row->updatedAt,

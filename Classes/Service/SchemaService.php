@@ -17,10 +17,10 @@ use TYPO3\CMS\Core\Database\Schema\ConnectionMigrator;
 use TYPO3\CMS\Core\Database\Schema\SqlReader;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
-class SchemaService
+readonly class SchemaService
 {
     public function __construct(
-        private readonly SchemaParser $schemaParser,
+        private SchemaParser $schemaParser,
     ) {}
 
     public function getIndexTableName(string $type, string $importSourceName): string
