@@ -69,7 +69,9 @@ readonly class TransferService
                 $row = $action->getData();
 
                 if ($action->getActionType() !== MmTableRecordAction::CREATE) {
-                    $this->deleteRow($targetDatabase, $table, $row);
+                    $allowedKeys = ['uid_local', 'uid_foreign', 'tablenames', 'fieldname'];
+                    $filteredRow = array_intersect_key($row, array_flip($allowedKeys));
+                    $this->deleteRow($targetDatabase, $table, $filteredRow);
                 }
 
                 if ($action->getActionType() !== MmTableRecordAction::DELETE) {
@@ -101,7 +103,11 @@ readonly class TransferService
                 $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relationTranslations);
                 foreach ($relationTranslations as $relationTranslation) {
                     if ($tableName === $relationTranslation->translated?->getTableName()) {
-                        $this->insertRow($targetDatabase, 'sys_refindex', $relationTranslation->translated->toArray(), $tableColumnMetas['sys_refindex']);
+                        try {
+                            $this->insertRow($targetDatabase, 'sys_refindex', $relationTranslation->translated->toArray(), $tableColumnMetas['sys_refindex']);
+                        } catch (\Exception) {
+                            // ignore if inserting refindex fails (same hash)
+                        }
                     }
                 }
 
@@ -131,7 +137,7 @@ readonly class TransferService
         try {
             $targetDatabase->insert($tableName, $row, $tableColumnMeta['types']);
         } catch (\Exception $e) {
-            throw new \Exception(sprintf('Error on trying to insert %s on %s with meta %s', json_encode($row), $tableName, json_decode($tableColumnMeta['defaults'])), $e->getCode(), $e);
+            throw new \Exception(sprintf('Error on trying to insert %s on %s with meta %s', json_encode($row), $tableName, json_encode($tableColumnMeta['defaults'])), $e->getCode(), $e);
         }
     }
 
