@@ -23,7 +23,7 @@ class ExportIndex
         private readonly SchemaService $schemaService,
         string $transferName,
     ) {
-        $this->indexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $transferName);
+        $this->indexTableName = $this->schemaService->establishIndexTable($this->connection, 'export', $transferName . uniqid('', false));
         $this->schemaService->emptyTable($this->connection, $this->indexTableName);
     }
 
