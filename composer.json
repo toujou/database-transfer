@@ -12,7 +12,7 @@
         "ergebnis/composer-normalize": "~2.42.0",
         "friendsofphp/php-cs-fixer": "^3.52",
 		"phpstan/phpstan": "^2.1",
-		"typo3/cms-install":  "^13.4",
+		"typo3/cms-install": "^13.4",
 		"typo3/testing-framework": "^8.2.7",
         "ssch/typo3-rector": "^0.11.46"
 	},
@@ -38,7 +38,7 @@
     },
     "extra": {
 		"branch-alias" : {
-			"dev-main" : "v12.x-dev"
+			"dev-main" : "v13.x-dev"
 		},
         "typo3/cms": {
             "cms-package-dir": "{$vendor-dir}/typo3/cms",
