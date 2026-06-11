@@ -36,15 +36,23 @@ readonly class SchemaService
         if ($schemaManager->tablesExist([$transferIndexTableName])) {
             return $transferIndexTableName;
         }
+
+        $columns = [
+            new Column('tablename', new StringType(), ['length' => $schemaConfig->getMaxIdentifierLength(), 'notnull' => true]),
+            new Column('sourceuid', new IntegerType(), ['notnull' => true]),
+            new Column('updated_at', new IntegerType(), ['notnull' => false]),
+            new Column('type', new StringType(), ['length' => 8, 'notnull' => true]),
+            new Column('targetuid', new IntegerType(), ['default' => null, 'notnull' => false]),
+        ];
+
+        if ($type === 'export') {
+            $columns[] = new Column('identifier', new StringType(), ['default' => null, 'notnull' => false]);
+
+        }
+
         $exportSelectionTable = new Table(
             $transferIndexTableName,
-            [
-                new Column('tablename', new StringType(), ['length' => $schemaConfig->getMaxIdentifierLength(), 'notnull' => true]),
-                new Column('sourceuid', new IntegerType(), ['notnull' => true]),
-                new Column('updated_at', new IntegerType(), ['notnull' => false]),
-                new Column('type', new StringType(), ['length' => 8, 'notnull' => true]),
-                new Column('targetuid', new IntegerType(), ['default' => null, 'notnull' => false]),
-            ],
+            $columns,
             [new Index('idx_tablename_sourceuid_' . crc32($transferIndexTableName), ['tablename', 'sourceuid'])],
             [
                 new UniqueConstraint('uc_tablename_sourceuid_' . crc32($transferIndexTableName), ['tablename', 'sourceuid']),
