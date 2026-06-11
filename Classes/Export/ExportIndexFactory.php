@@ -104,6 +104,12 @@ class ExportIndexFactory
                     $selectLiterals[] = 'NULL AS updated_at';
                 }
 
+                if ($tableName === 'sys_file') {
+                    $selectLiterals[] =  'identifier ';
+                } else {
+                    $selectLiterals[] =  'NULL AS identifier';
+                }
+
                 $query->selectLiteral(...$selectLiterals);
 
                 // TODO replace this with RelationAnalyzer as
@@ -159,6 +165,12 @@ class ExportIndexFactory
                 $selectLiterals[] = $schema->getCapability(TcaSchemaCapability::UpdatedAt)->getFieldName() . ' AS updated_at';
             } else {
                 $selectLiterals[] = 'NULL AS updated_at';
+            }
+
+            if ($tableName === 'sys_file') {
+                $selectLiterals[] =  'identifier';
+            } else {
+                $selectLiterals[] =  'NULL AS identifier';
             }
 
             $query->selectLiteral(...$selectLiterals);

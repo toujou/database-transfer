@@ -47,6 +47,7 @@ class ImportIndex
     {
         $this->schemaService->emptyTable($this->connection, $this->exportIndexTableName);
         $this->copySourceExportTableData($exportIndex);
+        $this->updateSysFilesByIdentifier();
 
         $query = $this->connection->createQueryBuilder();
         $query->select(
@@ -288,5 +289,23 @@ class ImportIndex
         }
 
         return MmTableRecordChangeSet::create($currentMmTableRecords, $exportMmTableRecords);
+    }
+
+    private function updateSysFilesByIdentifier(): void
+    {
+        $query = <<<SQL
+            INSERT INTO {$this->importIndexTableName} (tablename, sourceuid, type, targetuid)
+            SELECT s.tablename, s.sourceuid, s.type, f.uid AS targetuid
+            FROM  {$this->exportIndexTableName} s
+            INNER JOIN sys_file f ON f.identifier = s.identifier
+              AND s.tablename = 'sys_file'
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM {$this->importIndexTableName} t
+                WHERE t.sourceuid = s.sourceuid AND t.tablename = s.tablename
+            );
+SQL;
+
+        $this->connection->executeQuery($query);
     }
 }

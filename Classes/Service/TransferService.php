@@ -148,7 +148,7 @@ readonly class TransferService
      */
     private function updateRow(Connection $targetDatabase, string $tableName, array $row, array $identifier, array $tableColumnMeta): void
     {
-        unset($row['uid']);
+        unset($row['uid'], $row['tx_impexp_origuid']);
         $row = \array_intersect_key($row, $tableColumnMeta['types']);
 
         $targetDatabase->update($tableName, $row, $identifier, $tableColumnMeta['types']);

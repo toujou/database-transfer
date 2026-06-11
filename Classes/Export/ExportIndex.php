@@ -45,7 +45,7 @@ class ExportIndex
 
         return (int)$this->connection->executeStatement(
             \sprintf(
-                'INSERT INTO %s (tablename,sourceuid,type,updated_at) %s',
+                'INSERT INTO %s (tablename,sourceuid,type,updated_at,identifier) %s',
                 $query->quoteIdentifier($this->indexTableName),
                 $query->getSQL(),
             ),
