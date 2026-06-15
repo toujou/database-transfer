@@ -9,6 +9,7 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 use Toujou\DatabaseTransfer\Database\ForwardRelationTranslator\RelationTranslationStrategy;
 use Toujou\DatabaseTransfer\DTO\RelationTranslation;
 use TYPO3\CMS\Core\Configuration\FlexForm\FlexFormTools;
+use TYPO3\CMS\Core\Schema\Field\FlexFormFieldType;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\Exception\MissingArrayPathException;
@@ -39,6 +40,8 @@ readonly class RelationEditor
             return $record;
         }
 
+        $flexRelationHelper = GeneralUtility::makeInstance(FlexRelationHelper::class);
+
         $forwardPointingRelations = [];
         $backwardsPointingRelations = [];
         foreach ($relationTranslations as $relationTranslation) {
@@ -54,7 +57,8 @@ readonly class RelationEditor
                 continue;
             }
 
-            $columnConfig = $schema->getField($columnName)->getConfiguration();
+            $field = $schema->getField($columnName);
+            $columnConfig = $field->getConfiguration();
 
             if ($tableName === $relationTableName && isset($record[$columnName]) && !isset($columnConfig['foreign_field'])) {
                 if (!isset($forwardPointingRelations[$columnName])) {
@@ -62,13 +66,27 @@ readonly class RelationEditor
                     $forwardPointingRelations[$columnName]['relations'] = [];
                 }
                 $forwardPointingRelations[$columnName]['relations'][] = $relationTranslation;
-            } elseif ($tableName === $referencedTableName && isset($columnConfig['foreign_field'], $record[$columnConfig['foreign_field']])) {
-                $columnName = $columnConfig['foreign_field'];
-                if (!isset($backwardsPointingRelations[$columnName][$columnName])) {
-                    $backwardsPointingRelations[$relationTableName][$columnName]['config'] = $columnConfig;
-                    $backwardsPointingRelations[$relationTableName][$columnName]['relations'] = [];
+            } elseif ($tableName === $referencedTableName) {
+                if (isset($columnConfig['foreign_field'], $record[$columnConfig['foreign_field']])) {
+                    $columnName = $columnConfig['foreign_field'];
+                    if (!isset($backwardsPointingRelations[$columnName][$columnName])) {
+                        $backwardsPointingRelations[$relationTableName][$columnName]['config'] = $columnConfig;
+                        $backwardsPointingRelations[$relationTableName][$columnName]['relations'] = [];
+                    }
+                    $backwardsPointingRelations[$relationTableName][$columnName]['relations'][] = $relationTranslation;
+                } elseif ($field instanceof FlexFormFieldType) {
+
+                    $configs = $flexRelationHelper->getRelationalFlexFormConfigurations($field, $relationTableName);
+                    $foreignFieldConfig = array_filter($configs, fn(array $config) => isset($config['foreign_match_fields']['fieldname']) && str_contains($originalRelation->getFlexPointer(), $config['foreign_match_fields']['fieldname'] ?? null));
+
+                    if ($foreignFieldConfig) {
+                        $currentForeignFieldConfig = reset($foreignFieldConfig);
+                        $columnName = $currentForeignFieldConfig['foreign_field'];
+
+                        $backwardsPointingRelations[$relationTableName][$columnName]['config'] = $currentForeignFieldConfig;
+                        $backwardsPointingRelations[$relationTableName][$columnName]['relations'][] = $relationTranslation;
+                    }
                 }
-                $backwardsPointingRelations[$relationTableName][$columnName]['relations'][] = $relationTranslation;
             }
         }
 

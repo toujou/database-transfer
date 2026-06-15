@@ -8,6 +8,7 @@ use Doctrine\DBAL\ParameterType;
 use Toujou\DatabaseTransfer\Export\ExportIndex;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Schema\Field\FieldTypeInterface;
+use TYPO3\CMS\Core\Schema\Field\FlexFormFieldType;
 use TYPO3\CMS\Core\Schema\Field\RelationalFieldTypeInterface;
 use TYPO3\CMS\Core\Schema\PassiveRelation;
 use TYPO3\CMS\Core\Schema\RelationshipType;
@@ -23,12 +24,15 @@ class RelationAnalyzer
 
     /** @var PassiveRelation[][] */
     private readonly array $backwardsPointingRelations;
+    /** @var FlexRelationHelper */
+    private mixed $flexRelationHelper;
 
     public function __construct(
         private readonly ExportIndex $exportIndex,
         TcaSchemaFactory $schemaFactory = null,
     ) {
         $this->schemaFactory = $schemaFactory ?? GeneralUtility::makeInstance(TcaSchemaFactory::class);
+        $this->flexRelationHelper = GeneralUtility::makeInstance(FlexRelationHelper::class);
         $this->backwardsPointingRelations = $this->buildBackwardsPointingRelations();
     }
 
@@ -42,12 +46,26 @@ class RelationAnalyzer
         foreach ($recordTableNames as $tableName) {
             $schema = $this->schemaFactory->get($tableName);
             // We only take care of foreign fields, as all other relations are already covered by the forward pointing relations
-            $foreignFieldFields = $schema->getFields(fn(FieldTypeInterface $field) => $field instanceof RelationalFieldTypeInterface && $field->getRelationshipType() === RelationshipType::OneToMany);
-            /** @var RelationalFieldTypeInterface|FieldTypeInterface $foreignFieldField */
+            $foreignFieldFields = $schema->getFields(
+                fn(FieldTypeInterface $field) => ($field instanceof RelationalFieldTypeInterface && $field->getRelationshipType() === RelationshipType::OneToMany) || $field instanceof FlexFormFieldType,
+            );
+            /** @var FieldTypeInterface $foreignFieldField */
             foreach ($foreignFieldFields as $foreignFieldField) {
-                foreach ($foreignFieldField->getRelations() as $relation) {
-                    $backwardsPointingRelations[$relation->toTable()][] = new PassiveRelation($tableName, $foreignFieldField->getName(), null);
+
+                if ($foreignFieldField instanceof RelationalFieldTypeInterface) {
+                    foreach ($foreignFieldField->getRelations() as $relation) {
+                        $backwardsPointingRelations[$relation->toTable()][] = new PassiveRelation($tableName, $foreignFieldField->getName(), null);
+                    }
+                } elseif ($foreignFieldField instanceof FlexFormFieldType) {
+
+                    foreach ($this->flexRelationHelper->getRelationsForFlexField($foreignFieldField, $tableName) as $flexRelationTable => $flexRelations) {
+                        $backwardsPointingRelations[$flexRelationTable] = [
+                            ...$backwardsPointingRelations[$flexRelationTable] ?? [],
+                            ...$flexRelations,
+                        ];
+                    }
                 }
+
             }
         }
 
