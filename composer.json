@@ -9,7 +9,7 @@
 	},
     "require-dev": {
         "dfau/coding-standard": "^2.1.0",
-        "ergebnis/composer-normalize": "~2.42.0",
+        "ergebnis/composer-normalize": "~2.52.0",
         "friendsofphp/php-cs-fixer": "^3.52",
 		"phpstan/phpstan": "^2.1",
 		"typo3/cms-install": "^13.4",
