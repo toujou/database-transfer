@@ -46,7 +46,7 @@ readonly class TransferService
 
         $allTableNames = $exportIndex->getAllTableNames();
         $this->schemaService->establishSchemaOfTables($sourceDatabaseConnection, $allTableNames);
-        $tableColumnMetas = $this->schemaService->getTableColumnMeta($sourceDatabaseConnection, $allTableNames);
+        $tableColumnMetas = $this->schemaService->getTableColumnMeta($connection, $allTableNames);
 
         $comparisonResult = $importIndex->compare($exportIndex, $isDeltaUpdate);
         if ($dryRun) {
