@@ -57,6 +57,10 @@ readonly class RelationEditor
                 continue;
             }
 
+            if ($originalRelation->getSoftRefKey() === 'formPersistenceIdentifier') {
+                continue;
+            }
+
             $field = $schema->getField($columnName);
             $columnConfig = $field->getConfiguration();
 
