@@ -62,6 +62,19 @@ Options:
 
 ```
 
+Example command for copying a page tree within ddev
+```
+ddev typo3 database:transfer 
+--pid=1
+--exclude-table=tx_yoastseo_prominent_word
+--exclude-table=tx_migrations_domain_model_migrationstatus
+--exclude-table=tx_sentmail_mail
+--exclude-table=sys_redirect
+--exclude-table=tx_aisuite_domain_model_deepl
+--include-static=sys_file
+-- mysqli://db:db@db:3306/db secondtree
+```
+
 ## Development
 
 Install php dependencies using composer:
