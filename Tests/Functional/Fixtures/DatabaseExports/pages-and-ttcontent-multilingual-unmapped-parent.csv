@@ -1,0 +1,34 @@
+pages
+,uid,pid,tstamp,crdate,deleted,hidden,starttime,endtime,fe_group,sorting,rowDescription,editlock,sys_language_uid,l10n_parent,l10n_source,l10n_state,l10n_diffsource,t3ver_oid,t3ver_wsid,t3ver_state,t3ver_stage,perms_userid,perms_groupid,perms_user,perms_group,perms_everybody,SYS_LASTCHANGED,shortcut,content_from_pid,mount_pid,doktype,title,slug,TSconfig,php_tree_stop,categories,layout,extendToSubpages,nav_title,nav_hide,subtitle,target,url,lastUpdated,newUntil,cache_timeout,cache_tags,no_search,shortcut_mode,keywords,description,abstract,author,author_email,media,is_siteroot,mount_pid_ol,module,l18n_cfg,backend_layout,backend_layout_next_level,tsconfig_includes
+,1,0,0,0,0,0,0,0,0,1,,0,0,0,0,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,Root,,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+,2,1,0,0,0,0,0,0,0,2,,0,0,0,0,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,"Dummy no content",,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+,3,1,0,0,0,0,0,0,0,3,,0,0,0,0,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,"Dummy only default language",,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+,4,1,0,0,0,0,0,0,0,4,,0,0,0,0,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,"Dummy with 3 languages, no content [DEFAULT]",,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+,5,1,0,0,0,0,0,0,0,5,,0,0,0,0,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,"Dummy with 3 languages, fully translated [DEFAULT]",,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+,6,1,0,0,0,0,0,0,0,6,,0,0,0,0,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,"Dummy with 3 languages, only default content [DEFAULT]",,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+,7,1,0,0,0,0,0,0,0,7,,0,0,0,0,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,"Dummy with 3 languages, two translations [DEFAULT]",,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+,8,1,0,0,0,0,0,0,0,8,,0,1,5,5,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,"Dummy with 3 languages, fully translated [GERMAN]",,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+,9,1,0,0,0,0,0,0,0,10,,0,1,7,7,,,0,0,0,0,0,0,0,0,15,0,0,0,0,1,"Dummy with 3 languages, two languages [GERMAN]",,,0,0,0,0,,0,,,,0,0,0,,0,0,,,,,,0,0,0,,0,,,
+tt_content
+,uid,pid,tstamp,crdate,deleted,hidden,starttime,endtime,fe_group,sorting,rowDescription,editlock,sys_language_uid,l18n_parent,l10n_source,l10n_state,l18n_diffsource,t3ver_oid,t3ver_wsid,t3ver_state,t3ver_stage,frame_class,colPos,table_caption,CType,categories,layout,space_before_class,space_after_class,date,header,header_layout,header_position,header_link,subheader,bodytext,image,assets,imagewidth,imageheight,imageorient,imageborder,image_zoom,imagecols,pages,recursive,list_type,media,records,sectionIndex,linkToTop,pi_flexform,selected_categories,category_field,bullets_type,cols,table_class,table_delimiter,table_enclosure,table_header_position,table_tfoot,file_collections,filelink_size,filelink_sorting,filelink_sorting_direction,target,uploads_description,uploads_type
+,1,3,0,0,0,0,0,0,0,1,,0,0,0,0,,,0,0,0,0,default,0,,text,0,0,,,0,"Test content #1 pid=3 'Dummy only default language' (default language=0)",0,,,,,0,0,0,0,0,0,0,2,,0,,0,,1,0,,,,0,0,,124,0,0,0,,0,,,,0,0
+,2,7,0,0,0,0,0,0,0,2,,0,0,0,0,,,0,0,0,0,default,0,,text,0,0,,,0,"Test content #2 pid=7 'Dummy with 3 languages, two translations' (default language=0)",0,,,,,0,0,0,0,0,0,0,2,,0,,0,,1,0,,,,0,0,,124,0,0,0,,0,,,,0,0
+,3,5,0,0,0,0,0,0,0,4,,0,1,0,0,,,0,0,0,0,default,0,,text,0,0,,,0,"Test content #4 pid=5 'Dummy with 3 languages, fully translated' (german=1)",0,,,,,0,0,0,0,0,0,0,2,,0,,0,,1,0,,,,0,0,,124,0,0,0,,0,,,,0,0
+,4,6,0,0,0,0,0,0,0,6,,0,0,0,0,,,0,0,0,0,default,0,,text,0,0,,,0,"Test content #6 pid=6 'Dummy with 3 languages, only default content' (default language=0)",0,,,,,0,0,0,0,0,0,0,2,,0,,0,,1,0,,,,0,0,,124,0,0,0,,0,,,,0,0
+,5,7,0,0,0,0,0,0,0,7,,0,1,2,2,,,0,0,0,0,default,0,,text,0,0,,,0,"Test content #7 pid=7 'Dummy with 3 languages, two translations' (german=1)",0,,,,,0,0,0,0,0,0,0,2,,0,,0,,1,0,,,,0,0,,124,0,0,0,,0,,,,0,0
+sys_databasetransfer_import_source
+,tablename,sourceuid,updated_at,type,targetuid
+,pages,10,0,included,1
+,tt_content,10,0,included,1
+,pages,20,0,included,2
+,tt_content,20,0,included,2
+,pages,30,0,included,3
+,pages,40,0,included,4
+,tt_content,40,0,included,3
+,pages,50,0,included,5
+,pages,60,0,included,6
+,tt_content,60,0,included,4
+,pages,70,0,included,7
+,tt_content,70,0,included,5
+,pages,80,0,related,8
+,pages,100,0,related,9
