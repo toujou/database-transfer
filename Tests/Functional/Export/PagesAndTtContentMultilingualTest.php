@@ -70,6 +70,35 @@ final class PagesAndTtContentMultilingualTest extends AbstractTransferTestCase
     }
 
     #[Test]
+    public function exportWithFreeModeContentOnSelectedPid(): void
+    {
+        $this->importMultilingualFixtures();
+        $this->importCSVDataSet(self::IMPORT_DIR . 'tt_content-free-mode.csv');
+
+        $this->runTransfer([
+            'pid' => [10],
+            'include-table' => ['pages', 'tt_content'],
+            'language-map' => ['1'],
+        ]);
+
+        $this->assertCSVDataSet(self::EXPORT_DIR . 'pages-and-ttcontent-multilingual-free-mode.csv');
+    }
+
+    #[Test]
+    public function exportWithoutLanguageMapOmitsFreeModeContent(): void
+    {
+        $this->importMultilingualFixtures();
+        $this->importCSVDataSet(self::IMPORT_DIR . 'tt_content-free-mode.csv');
+
+        $this->runTransfer([
+            'pid' => [10],
+            'include-table' => ['pages', 'tt_content'],
+        ]);
+
+        $this->assertCSVDataSet(self::EXPORT_DIR . 'pages-and-ttcontent-multilingual-default.csv');
+    }
+
+    #[Test]
     public function exportImportsMetadataOverlay(): void
     {
         $this->importCSVDataSet(self::IMPORT_DIR . 'pages.csv');
