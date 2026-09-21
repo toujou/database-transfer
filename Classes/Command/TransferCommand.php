@@ -102,6 +102,13 @@ class TransferCommand extends Command
                 'Include record relations to this table, excluding the related record. Examples: "ALL", "be_users", etc.',
             )
             ->addOption(
+                'language-map',
+                null,
+                InputOption::VALUE_OPTIONAL | InputOption::VALUE_IS_ARRAY,
+                'Comma-separated language IDs. Token "{uid}" copies that source ID as-is; token "{source}:{target}" remaps. '
+                . 'Repeatable values are merged. Enables export of those source languages and remaps IDs on import.',
+            )
+            ->addOption(
                 'delta-update',
                 null,
                 InputOption::VALUE_NONE,

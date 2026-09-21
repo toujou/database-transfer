@@ -9,7 +9,10 @@ use Symfony\Component\DependencyInjection\ServiceLocator;
 use Toujou\DatabaseTransfer\Database\ForwardRelationTranslator\RelationTranslationStrategy;
 use Toujou\DatabaseTransfer\DTO\RelationTranslation;
 use TYPO3\CMS\Core\Configuration\FlexForm\FlexFormTools;
+use TYPO3\CMS\Core\Schema\Capability\LanguageAwareSchemaCapability;
+use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
 use TYPO3\CMS\Core\Schema\Field\FlexFormFieldType;
+use TYPO3\CMS\Core\Schema\TcaSchema;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\Exception\MissingArrayPathException;
@@ -58,6 +61,11 @@ readonly class RelationEditor
             }
 
             if ($originalRelation->getSoftRefKey() === 'formPersistenceIdentifier') {
+                continue;
+            }
+
+            if ($this->isTranslationPointerField($schema, $columnName)) {
+                // Translation pointers are remapped by the TranslationEditor, which is authoritative.
                 continue;
             }
 
@@ -120,6 +128,22 @@ readonly class RelationEditor
         }
 
         return $record;
+    }
+
+    private function isTranslationPointerField(TcaSchema $schema, string $columnName): bool
+    {
+        if (!$schema->isLanguageAware()) {
+            return false;
+        }
+
+        /** @var LanguageAwareSchemaCapability $languageCapability */
+        $languageCapability = $schema->getCapability(TcaSchemaCapability::Language);
+
+        if ($languageCapability->getTranslationOriginPointerField()->getName() === $columnName) {
+            return true;
+        }
+
+        return $languageCapability->getTranslationSourceField()?->getName() === $columnName;
     }
 
     /**

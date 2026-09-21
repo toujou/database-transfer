@@ -7,6 +7,7 @@ namespace Toujou\DatabaseTransfer\Service;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Toujou\DatabaseTransfer\Database\RelationAnalyzer;
 use Toujou\DatabaseTransfer\Database\RelationEditor;
+use Toujou\DatabaseTransfer\Database\TranslationEditor;
 use Toujou\DatabaseTransfer\DTO\MmTableRecordAction;
 use Toujou\DatabaseTransfer\DTO\RecordAction;
 use Toujou\DatabaseTransfer\DTO\RecordChangeSet;
@@ -25,6 +26,7 @@ readonly class TransferService
         private ImportIndexFactory $importIndexFactory,
         private SchemaService $schemaService,
         private RelationEditor $relationEditor,
+        private TranslationEditor $translationEditor,
     ) {}
 
     public function transfer(
@@ -55,7 +57,7 @@ readonly class TransferService
         }
 
         // This transaction leads to roughly 100x performance improvement on sqlite
-        $connection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas, $comparisonResult) {
+        $connection->transactional(function (Connection $targetDatabase) use ($importIndex, $exportIndex, $tableColumnMetas, $comparisonResult, $selection) {
             foreach ($comparisonResult->getRecordsToCreate() as $item) {
                 // Insert placeholder to get target id
                 $this->insertRow($targetDatabase, $item->tableName, [], $tableColumnMetas[$item->tableName]);
@@ -101,6 +103,8 @@ readonly class TransferService
                 /** @var RelationTranslation[] $relationTranslations */
                 $relationTranslations = \array_map([$importIndex, 'translateRelation'], $exportRelationAnalyzer->getRelationsForRecord($tableName, (int)$record['uid']));
                 $record = $this->relationEditor->editRelationsInRecord($tableName, $uid, $record, $relationTranslations);
+                $record = $this->translationEditor->editTranslationsInRecord($tableName, $record, $selection, $importIndex);
+
                 foreach ($relationTranslations as $relationTranslation) {
                     if ($tableName === $relationTranslation->translated?->getTableName()) {
                         try {

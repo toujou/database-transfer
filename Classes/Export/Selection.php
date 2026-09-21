@@ -12,6 +12,7 @@ final class Selection
      * @param string[] $relatedTables
      * @param string[] $staticTables
      * @param mixed[] $excludedRecords
+     * @param array<int, int> $languageMap sourceUid => targetUid
      */
     public function __construct(
         private readonly array $selectedPageIds = [],
@@ -19,6 +20,7 @@ final class Selection
         private readonly array $relatedTables = [],
         private readonly array $staticTables = [],
         private readonly array $excludedRecords = [],
+        private readonly array $languageMap = [],
     ) {}
 
     /**
@@ -59,5 +61,21 @@ final class Selection
     public function getExcludedRecords(): array
     {
         return $this->excludedRecords;
+    }
+
+    /**
+     * @return array<int, int> sourceUid => targetUid
+     */
+    public function getLanguageMap(): array
+    {
+        return $this->languageMap;
+    }
+
+    /**
+     * @return int[]
+     */
+    public function getIncludedSourceLanguageIds(): array
+    {
+        return [-1, 0, ...\array_keys($this->languageMap)];
     }
 }

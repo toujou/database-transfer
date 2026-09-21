@@ -6,6 +6,7 @@ namespace Toujou\DatabaseTransfer\Export;
 
 use Toujou\DatabaseTransfer\Service\SchemaService;
 use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Schema\Capability\LanguageAwareSchemaCapability;
 use TYPO3\CMS\Core\Schema\Capability\TcaSchemaCapability;
@@ -28,7 +29,16 @@ class ExportIndexFactory
         $exportIndex = new ExportIndex($connection, $this->schemaService, $importSourceName);
 
         $this->addDirectlySelectedRecords($selection, $exportIndex);
-        $this->addRelatedRecords($selection, $exportIndex);
+
+        // Related records and translation overlays are collected in one fixpoint: an overlay that only
+        // the translation pass can reach may own related records, and those related records may own overlays.
+        $depthLimiter = 0;
+        do {
+            $this->addRelatedRecords($selection, $exportIndex);
+            $translationRecordsFound = $this->addTranslationRecordsWithDependencies($selection, $exportIndex);
+            ++$depthLimiter;
+        } while ($translationRecordsFound > 0 && $depthLimiter < 100);
+
         $this->addMMRelations($exportIndex);
 
         return $exportIndex;
@@ -39,8 +49,9 @@ class ExportIndexFactory
      * @param int[] $selectedPageIds
      * @param string[] $staticTableNames
      * @param array<string, int[]> $excludedRecords
+     * @param int[] $includedSourceLanguageIds
      */
-    private function generateRecordQueriesForSelection(ExportIndex $exportIndex, array $tableNames, array $selectedPageIds, array $staticTableNames = [], array $excludedRecords = []): \Generator
+    private function generateRecordQueriesForSelection(ExportIndex $exportIndex, array $tableNames, array $selectedPageIds, array $staticTableNames, array $excludedRecords, array $includedSourceLanguageIds): \Generator
     {
         foreach ($tableNames as $tableName) {
             $schema = $this->tcaSchemaFactory->get($tableName);
@@ -67,7 +78,7 @@ class ExportIndexFactory
                 /** @var LanguageAwareSchemaCapability $languageCapability */
                 $languageCapability = $schema->getCapability(TcaSchemaCapability::Language);
                 $languageField = $languageCapability->getLanguageField()->getName();
-                $queryBuilder->andWhere($expr->in($languageField, [-1, 0]));
+                $queryBuilder->andWhere($expr->in($languageField, $includedSourceLanguageIds));
             }
 
             yield $tableName => $queryBuilder;
@@ -87,30 +98,15 @@ class ExportIndexFactory
                 $selection->getSelectedPageIds(),
                 $selection->getStaticTables(),
                 $selection->getExcludedRecords(),
+                $selection->getIncludedSourceLanguageIds(),
             ) as $tableName => $query) {
                 $expr = $query->expr();
 
-                $schema = $this->tcaSchemaFactory->get($tableName);
-
-                $selectLiterals = [
-                    $query->quote($tableName) . ' AS tablename',
-                    'uid AS sourceuid',
-                    (\in_array($tableName, $selection->getStaticTables()) ? $query->quote('static') : $query->quote('related')) . ' AS type',
-                ];
-
-                if ($schema->hasCapability(TcaSchemaCapability::UpdatedAt)) {
-                    $selectLiterals[] = $schema->getCapability(TcaSchemaCapability::UpdatedAt)->getFieldName() . ' AS updated_at';
-                } else {
-                    $selectLiterals[] = 'NULL AS updated_at';
-                }
-
-                if ($tableName === 'sys_file') {
-                    $selectLiterals[] =  'identifier ';
-                } else {
-                    $selectLiterals[] =  'NULL AS identifier';
-                }
-
-                $query->selectLiteral(...$selectLiterals);
+                $query->selectLiteral(...$this->buildIndexSelectLiterals(
+                    $query,
+                    $tableName,
+                    \in_array($tableName, $selection->getStaticTables(), true) ? 'static' : 'related',
+                ));
 
                 // TODO replace this with RelationAnalyzer as
                 // this doesn't cater for backwards pointing relations like sys_category_record_mm
@@ -144,6 +140,131 @@ class ExportIndexFactory
         } while ($recordsFound > 0 && $depthLimiter < 100);
     }
 
+    /**
+     * Adds overlays of already indexed records until no further overlay is found.
+     *
+     * Overlays can own other overlays (translation chains), so tables that received records are scanned again.
+     *
+     * @return int number of added overlay records
+     */
+    private function addTranslationRecordsWithDependencies(Selection $selection, ExportIndex $exportIndex): int
+    {
+        $recordsFound = 0;
+        $tableNames = null;
+        $depthLimiter = 0;
+        do {
+            $addedRecords = $this->addTranslationRecords($selection, $exportIndex, $tableNames);
+            $tableNames = \array_keys($addedRecords);
+            $recordsFound += \array_sum($addedRecords);
+            ++$depthLimiter;
+        } while ($tableNames !== [] && $depthLimiter < 100);
+
+        return $recordsFound;
+    }
+
+    /**
+     * Adds overlays of records that are already present in the export index.
+     *
+     * Translated records are not guaranteed to be reachable via sys_refindex, so they are collected
+     * by following the origin pointer field of language-aware tables. Only runs when a language map is set.
+     *
+     * @param string[]|null $tableNames tables to scan, null scans every language-aware table in the export index
+     *
+     * @return array<string, int> number of added records per table
+     */
+    private function addTranslationRecords(Selection $selection, ExportIndex $exportIndex, ?array $tableNames = null): array
+    {
+        $sourceLanguageIds = \array_keys($selection->getLanguageMap());
+        if ($sourceLanguageIds === []) {
+            return [];
+        }
+
+        $excludedRecords = $selection->getExcludedRecords();
+        $addedRecords = [];
+
+        foreach ($tableNames ?? $exportIndex->getRecordTableNames() as $tableName) {
+            $schema = $this->tcaSchemaFactory->get($tableName);
+            if (!$schema->isLanguageAware()) {
+                continue;
+            }
+
+            /** @var LanguageAwareSchemaCapability $languageCapability */
+            $languageCapability = $schema->getCapability(TcaSchemaCapability::Language);
+            $languageField = $languageCapability->getLanguageField()->getName();
+            $originPointerField = $languageCapability->getTranslationOriginPointerField()->getName();
+
+            $query = $exportIndex->getConnection()->createQueryBuilder();
+            $expr = $query->expr();
+            $query->getRestrictions()->removeAll()->add(new DeletedRestriction());
+            $query->selectLiteral(...$this->buildIndexSelectLiterals(
+                $query,
+                $tableName,
+                \in_array($tableName, $selection->getStaticTables(), true) ? 'static' : 'related',
+                't',
+            ));
+
+            $query->from($tableName, 't');
+            $query->join(
+                't',
+                $exportIndex->getIndexTableName(),
+                'ex',
+                (string)$expr->and(
+                    $expr->eq('ex.tablename', $query->quote($tableName)),
+                    $expr->eq('ex.sourceuid', 't.' . $originPointerField),
+                ),
+            );
+            $query->where($expr->in('t.' . $languageField, $sourceLanguageIds));
+
+            if (!empty($excludedRecords[$tableName])) {
+                $query->andWhere($expr->notIn('t.uid', $excludedRecords[$tableName]));
+            }
+
+            $exportSelectionSubquery = $exportIndex->getConnection()->createQueryBuilder();
+            $exportSelectionSubquery->getRestrictions()->removeAll();
+            $exportSelectionSubquery->select('sourceuid')->from($exportIndex->getIndexTableName(), 'exe')->where(
+                $expr->eq('exe.tablename', $query->quote($tableName)),
+            );
+
+            $query->andWhere($expr->notIn('t.uid', $exportSelectionSubquery->getSQL()));
+
+            $recordsAdded = $exportIndex->addRecordsToIndexFromQuery($query);
+            if ($recordsAdded > 0) {
+                $addedRecords[$tableName] = $recordsAdded;
+            }
+        }
+
+        return $addedRecords;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function buildIndexSelectLiterals(QueryBuilder $query, string $tableName, string $type, string $tableAlias = ''): array
+    {
+        $schema = $this->tcaSchemaFactory->get($tableName);
+        $columnPrefix = $tableAlias === '' ? '' : $tableAlias . '.';
+
+        $selectLiterals = [
+            $query->quote($tableName) . ' AS tablename',
+            $columnPrefix . 'uid AS sourceuid',
+            $query->quote($type) . ' AS type',
+        ];
+
+        if ($schema->hasCapability(TcaSchemaCapability::UpdatedAt)) {
+            $selectLiterals[] = $columnPrefix . $schema->getCapability(TcaSchemaCapability::UpdatedAt)->getFieldName() . ' AS updated_at';
+        } else {
+            $selectLiterals[] = 'NULL AS updated_at';
+        }
+
+        if ($tableName === 'sys_file') {
+            $selectLiterals[] = $columnPrefix . 'identifier';
+        } else {
+            $selectLiterals[] = 'NULL AS identifier';
+        }
+
+        return $selectLiterals;
+    }
+
     private function addDirectlySelectedRecords(Selection $selection, ExportIndex $exportIndex): void
     {
         foreach ($this->generateRecordQueriesForSelection(
@@ -152,28 +273,10 @@ class ExportIndexFactory
             $selection->getSelectedPageIds(),
             [],
             $selection->getExcludedRecords(),
+            $selection->getIncludedSourceLanguageIds(),
         ) as $tableName => $query) {
-            $schema = $this->tcaSchemaFactory->get($tableName);
+            $query->selectLiteral(...$this->buildIndexSelectLiterals($query, $tableName, 'included'));
 
-            $selectLiterals = [
-                $query->quote($tableName) . ' AS tablename',
-                'uid AS sourceuid',
-                $query->quote('included') . ' AS type',
-            ];
-
-            if ($schema->hasCapability(TcaSchemaCapability::UpdatedAt)) {
-                $selectLiterals[] = $schema->getCapability(TcaSchemaCapability::UpdatedAt)->getFieldName() . ' AS updated_at';
-            } else {
-                $selectLiterals[] = 'NULL AS updated_at';
-            }
-
-            if ($tableName === 'sys_file') {
-                $selectLiterals[] =  'identifier';
-            } else {
-                $selectLiterals[] =  'NULL AS identifier';
-            }
-
-            $query->selectLiteral(...$selectLiterals);
             $exportIndex->addRecordsToIndexFromQuery($query);
         }
     }

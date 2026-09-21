@@ -25,8 +25,62 @@ class SelectionFactory
         $selectedTables = $this->getTableSelection($options['include-table'] ?? [], $options['exclude-table'] ?? [], $includesRootLevel);
         $relatedTables = $this->getTableSelection($options['include-related'] ?? [], \array_merge($options['exclude-table'] ?? [], $options['include-static'] ?? []));
         $staticTables = $this->getTableSelection($options['include-static'] ?? [], \array_merge($options['exclude-table'] ?? [], $options['include-related'] ?? []));
+        $languageMap = $this->getLanguageMap($options['language-map'] ?? []);
 
-        return new Selection($pageIds, $selectedTables, $relatedTables, $staticTables, $excludedRecords);
+        return new Selection($pageIds, $selectedTables, $relatedTables, $staticTables, $excludedRecords, $languageMap);
+    }
+
+    /**
+     * @param mixed $languageMapOptions
+     *
+     * @return array<int, int> sourceUid => targetUid
+     */
+    private function getLanguageMap(mixed $languageMapOptions = []): array
+    {
+        $languageMap = [];
+
+        foreach ((array)$languageMapOptions as $optionValue) {
+            foreach (\explode(',', (string)$optionValue) as $token) {
+                $token = \trim($token);
+                if ($token === '') {
+                    continue;
+                }
+
+                if (\substr_count($token, ':') > 1) {
+                    throw new \InvalidArgumentException(\sprintf('Invalid --language-map token "%s": expected "{uid}" or "{source}:{target}".', $token), 1758000001);
+                }
+
+                if (\str_contains($token, ':')) {
+                    [$source, $target] = \explode(':', $token, 2);
+                    $source = $this->getLanguageId($source, $token);
+                    $target = $this->getLanguageId($target, $token);
+                } else {
+                    $source = $target = $this->getLanguageId($token, $token);
+                }
+
+                if (isset($languageMap[$source])) {
+                    throw new \InvalidArgumentException(\sprintf('Invalid --language-map token "%s": duplicate source language id %d.', $token, $source), 1758000002);
+                }
+
+                if (\in_array($target, $languageMap, true)) {
+                    throw new \InvalidArgumentException(\sprintf('Invalid --language-map token "%s": target language id %d is already mapped.', $token, $target), 1758000004);
+                }
+
+                $languageMap[$source] = $target;
+            }
+        }
+
+        return $languageMap;
+    }
+
+    private function getLanguageId(string $value, string $token): int
+    {
+        $value = \trim($value);
+        if ($value === '' || !\ctype_digit($value) || (int)$value <= 0) {
+            throw new \InvalidArgumentException(\sprintf('Invalid --language-map token "%s": language ids must be positive integers.', $token), 1758000003);
+        }
+
+        return (int)$value;
     }
 
     /**
