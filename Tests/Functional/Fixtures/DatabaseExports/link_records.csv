@@ -1,0 +1,6 @@
+"pages",,,,,,,
+,"uid","pid","deleted","hidden","perms_everybody","doktype","title"
+,1,0,0,0,15,1,"Test"
+"tx_test_with_link",,,,,,,
+,"uid","pid","link"
+,1,1,t3://page?uid=1

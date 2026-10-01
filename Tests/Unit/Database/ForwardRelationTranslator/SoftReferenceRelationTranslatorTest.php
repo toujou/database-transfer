@@ -288,4 +288,75 @@ final class SoftReferenceRelationTranslatorTest extends UnitTestCase
         self::assertSame('<a href="t3://page?uid=456">Link</a>', $result);
     }
 
+    #[Test]
+    public function translateHandlesTypo3LinksWithPagesAsRefTable(): void
+    {
+        $relationTranslation = RelationTranslation::create(
+            original: Relation::fromArray([
+                'softref_key' => 'typolink',
+                'softref_id' => 'identifier',
+                'tablename' => 'teaser',
+                'ref_table' => 'pages',
+                'field' => 'bar',
+                'recuid' => 10,
+            ]),
+            translated: Relation::fromArray([
+                'ref_uid' => 456,
+                'softref_key' => 'typolink',
+                'tablename' => 'teaser',
+                'ref_table' => 'pages',
+            ]),
+        );
+
+        $parserResult = SoftReferenceParserResult::create(
+            content: '{softref:token123}',
+            elements: [
+                'identifier' => [
+                    'subst' => [
+                        'tokenID' => 'token123',
+                        'type' => 'db',
+                        'tokenValue' => 't3://page?uid=123',
+                    ],
+                    'matchString' => 't3://page?uid=123#999',
+                ],
+            ],
+        );
+
+        $parserMock = $this->createMock(SoftReferenceParserInterface::class);
+        $parserMock->method('getParserKey')->willReturn('typolink');
+        $parserMock->method('parse')->willReturn($parserResult);
+
+        $this->softReferenceParserFactory
+            ->method('getParsersBySoftRefParserList')
+            ->willReturn([$parserMock]);
+
+        $this->linkService
+            ->expects(self::once())
+            ->method('resolve')
+            ->with('t3://page?uid=123#999')
+            ->willReturn([
+                'type' => 'page',
+                'pageuid' => 123,
+                'fragment' => '999',
+            ]);
+
+        $this->linkService
+            ->expects(self::once())
+            ->method('asString')
+            ->with([
+                'type' => 'page',
+                'pageuid' => 456,
+            ])
+            ->willReturn('t3://page?uid=456');
+
+        $value = 't3://page?uid=123#999"';
+
+        $result = $this->subject->translate(
+            [$relationTranslation],
+            $value,
+            ['softref' => 'typolink'],
+        );
+
+        self::assertSame('t3://page?uid=456', $result);
+    }
 }
