@@ -128,7 +128,7 @@ readonly class SoftReferenceRelationTranslator implements RelationTranslationStr
 
                         $parts = $this->linkService->resolve($link);
 
-                        if ($translatedRelation->getTableName() === 'pages') {
+                        if ($translatedRelation->getTableName() === 'pages' || ($translatedRelation->getSoftRefKey() === 'typolink' && $translatedRelation->getRefTable() === 'pages')) {
                             $parts['pageuid'] = $translatedRelation->getRefUid();
                         }
                         // content element anchors will be replaced via own softref
